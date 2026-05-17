@@ -1,30 +1,38 @@
-// src/components/EventTimeline.jsx
-
 function EventTimeline({ events }) {
+
   return (
-    <div className="bg-white p-5 rounded-xl shadow-md h-[500px] overflow-y-auto">
+
+    <div className="bg-white p-5 rounded-xl shadow-md h-[700px] overflow-y-auto">
+
       <h2 className="text-xl font-bold mb-4">
-        Actividad de Agentes
+        Actividad Multiagente
       </h2>
 
-      <div className="space-y-3">
+      <div className="space-y-4">
+
         {events.map((event, index) => (
+
           <div
             key={index}
-            className="border-l-4 border-blue-500 pl-3 py-2 bg-gray-50 rounded"
+            className="border-l-4 border-blue-600 bg-gray-50 p-3 rounded"
           >
-            <p className="font-semibold">
-              {event.event_type || "EVENT"}
-            </p>
 
-            <pre className="text-sm whitespace-pre-wrap">
-              {JSON.stringify(event, null, 2)}
+            <div className="font-bold text-blue-700">
+              {event.event_type}
+            </div>
+
+            <pre className="text-sm mt-2 whitespace-pre-wrap">
+              {JSON.stringify(event.payload || event, null, 2)}
             </pre>
+
           </div>
+
         ))}
+
       </div>
+
     </div>
-  );
+  )
 }
 
-export default EventTimeline;
+export default EventTimeline

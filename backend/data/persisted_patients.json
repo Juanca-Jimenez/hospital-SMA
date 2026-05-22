@@ -1,0 +1,21 @@
+[
+  {
+    "edad": 21,
+    "genero": "Femenino",
+    "nivel_urgencia": 4,
+    "sintomas": "dolor_de_cabeza, tos, fiebre",
+    "signos_vitales": {
+      "presion": "124",
+      "temperatura": "28",
+      "frecuencia_cardiaca": "110",
+      "saturacion_oxigeno": "75"
+    },
+    "estado": "En_espera",
+    "id_paciente": "P75651B2",
+    "timestamp": "2026-05-22T12:28:43.404282",
+    "tiempo_espera_min": 0,
+    "departamento_asignado": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null
+  }
+]

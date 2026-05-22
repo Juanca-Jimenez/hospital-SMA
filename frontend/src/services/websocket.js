@@ -1,8 +1,9 @@
 let socket = null
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000"
+const WS_BASE = import.meta.env.VITE_WS_URL || API_BASE.replace(/^http/, "ws")
 
 export const connectWebSocket = (onMessage) => {
-  socket = new WebSocket("ws://localhost:8000/ws")
+  socket = new WebSocket(`${WS_BASE}/ws`)
 
   socket.onopen = () => {
     console.log("WebSocket Connected")
@@ -32,6 +33,6 @@ export const fetchPatients = async (limit = 100) => {
 
 export const sendPatient = (patientData) => {
   if (socket && socket.readyState === WebSocket.OPEN) {
-    socket.send(JSON.stringify(patientData))
+    socket.send(JSON.stringify({ action: "NEW_PATIENT", patient: patientData }))
   }
 }

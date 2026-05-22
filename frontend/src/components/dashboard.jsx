@@ -36,16 +36,18 @@ function Dashboard() {
     loadPatients()
 
     connectWebSocket((data) => {
-      if (data.event_type === "INITIAL_PATIENTS") {
+      if (data.event_type === "INITIAL_SNAPSHOT") {
         setPatients(data.patients || [])
         setMetrics(data.global_state || {})
+        setEvents(data.events || [])
         return
       }
 
       setEvents((prev) => [data, ...prev])
 
-      if (data.patient) {
-        setPatients((prev) => [data.patient, ...prev])
+      const patient = data.payload?.patient
+      if (patient) {
+        setPatients((prev) => [patient, ...prev.filter((item) => item.id_paciente !== patient.id_paciente)])
       }
 
       if (data.global_state) {

@@ -1,7 +1,21 @@
-from fastapi import FastAPI, HTTPException
+﻿from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
-import pandas as pd
+from datetime import datetime
+import json
+import uuid
+
+from backend.event_bus import EventBus
+from backend.state_manager import HospitalStateManager
+from backend.agents import (
+    TriageAgent,
+    ResourceAgent,
+    StaffAgent,
+    ForecastAgent,
+    WorkflowAgent,
+    QualityAgent,
+    OrchestratorAgent,
+)
 
 app = FastAPI()
 
@@ -13,33 +27,123 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DATA_DIR = Path(__file__).resolve().parent / "data"
-PATIENTS_CSV = DATA_DIR / "pacientes_admisiones.csv"
+ROOT = Path(__file__).resolve().parent
+DATA_DIR = ROOT / "data"
 
 
-def read_patients(limit: int = 100):
-    if not PATIENTS_CSV.exists():
-        raise FileNotFoundError(f"Archivo de pacientes no encontrado: {PATIENTS_CSV}")
+class WebSocketManager:
+    def __init__(self):
+        self.active = []
 
-    df = pd.read_csv(PATIENTS_CSV)
-    return df.head(limit).to_dict(orient="records")
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active.append(websocket)
+
+    async def disconnect(self, websocket: WebSocket):
+        if websocket in self.active:
+            self.active.remove(websocket)
+
+    async def broadcast(self, message: dict):
+        to_remove = []
+        for ws in list(self.active):
+            try:
+                await ws.send_text(json.dumps(message))
+            except Exception:
+                to_remove.append(ws)
+        for ws in to_remove:
+            if ws in self.active:
+                self.active.remove(ws)
+
+
+event_bus = EventBus()
+state_manager = HospitalStateManager(DATA_DIR)
+
+triage = TriageAgent(event_bus, state_manager)
+resource = ResourceAgent(event_bus, state_manager)
+staff = StaffAgent(event_bus, state_manager)
+forecast = ForecastAgent(event_bus, state_manager)
+workflow = WorkflowAgent(event_bus, state_manager)
+quality = QualityAgent(event_bus, state_manager)
+orchestrator = OrchestratorAgent(event_bus, state_manager)
+
+ws_manager = WebSocketManager()
+
+
+def make_broadcaster(event_type: str):
+    async def _broadcast(payload: dict):
+        await ws_manager.broadcast(
+            {
+                "event_type": event_type,
+                "payload": payload,
+                "global_state": state_manager.get_global_state(),
+            }
+        )
+    return _broadcast
+
+
+for event_type in [
+    "PATIENT_ARRIVED",
+    "PATIENT_TRIAGED",
+    "RESOURCE_ALLOCATED",
+    "STAFF_ASSIGNED",
+    "SATURATION_WARNING",
+    "WORKFLOW_ALERT",
+    "CRITICAL_ALERT",
+]:
+    event_bus.subscribe(event_type, make_broadcaster(event_type))
 
 
 @app.get("/api/patients")
 def get_patients(limit: int = 100):
-    try:
-        patients = read_patients(limit)
-        return {"patients": patients, "count": len(patients)}
-    except FileNotFoundError as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Error al leer el CSV de pacientes: {exc}")
+    patients = state_manager.get_all_patients(limit)
+    return {"patients": patients, "count": len(patients)}
+
+
+@app.get("/api/state")
+def api_state():
+    return state_manager.get_global_state()
 
 
 @app.get("/api/health")
 def health():
     try:
-        patients = read_patients(1)
-        return {"status": "ok", "patients_available": len(patients)}
-    except Exception:
-        raise HTTPException(status_code=500, detail="El servicio de pacientes no está disponible")
+        return {
+            "status": "ok",
+            "active_patients": state_manager.get_global_state().get("active_patients", 0),
+            "resources": state_manager.get_global_state().get("resources", {}),
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Error interno: {exc}")
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await ws_manager.connect(websocket)
+
+    snapshot = {
+        "event_type": "INITIAL_SNAPSHOT",
+        "patients": state_manager.get_all_patients(200),
+        "global_state": state_manager.get_global_state(),
+        "events": state_manager.event_timeline[:50],
+        "decisions": state_manager.decision_trace[-50:],
+    }
+    await websocket.send_text(json.dumps(snapshot))
+
+    try:
+        while True:
+            data_text = await websocket.receive_text()
+            try:
+                payload = json.loads(data_text)
+            except ValueError:
+                continue
+
+            if payload.get("action") == "NEW_PATIENT":
+                patient = payload.get("patient") or {}
+                patient.setdefault("id_paciente", f"P{str(uuid.uuid4())[:7].upper()}")
+                patient["timestamp"] = patient.get("timestamp") or datetime.now().isoformat()
+                patient.setdefault("estado", "En_espera")
+                state_manager.add_patient(patient)
+                await event_bus.publish("PATIENT_ARRIVED", patient)
+
+    except WebSocketDisconnect:
+        await ws_manager.disconnect(websocket)

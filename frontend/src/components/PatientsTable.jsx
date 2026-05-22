@@ -19,24 +19,22 @@ function PatientsTable({ patients, loading }) {
             <thead>
               <tr>
                 <th>ID</th>
-                <th>Edad</th>
-                <th>Género</th>
                 <th>Urgencia</th>
-                <th>Departamento</th>
-                <th>Espera (min)</th>
                 <th>Estado</th>
+                <th>Departamento</th>
+                <th>Médico</th>
+                <th>Espera (min)</th>
               </tr>
             </thead>
             <tbody>
               {patients.map((patient, index) => (
                 <tr key={index}>
                   <td>{patient.id_paciente}</td>
-                  <td>{patient.edad}</td>
-                  <td>{patient.genero}</td>
                   <td>{patient.nivel_urgencia}</td>
-                  <td>{patient.departamento_asignado}</td>
-                  <td>{patient.tiempo_espera_min}</td>
                   <td>{patient.estado}</td>
+                  <td>{patient.departamento_asignado || "Pendiente"}</td>
+                  <td>{patient.medico_asignado || "Sin asignar"}</td>
+                  <td>{patient.tiempo_espera_min}</td>
                 </tr>
               ))}
             </tbody>

@@ -5,12 +5,14 @@ import { sendPatient } from "../services/websocket";
 
 function PatientForm() {
   const [formData, setFormData] = useState({
-    id_paciente: "",
     edad: "",
     genero: "Masculino",
-    nivel_urgencia: 3,
+    nivel_urgencia: "3",
     sintomas: "",
-    estado: "En atención",
+    presion: "",
+    temperatura: "",
+    frecuencia_cardiaca: "",
+    saturacion_oxigeno: "",
   });
 
   const handleChange = (e) => {
@@ -23,15 +25,29 @@ function PatientForm() {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    sendPatient(formData);
+    sendPatient({
+      edad: Number(formData.edad),
+      genero: formData.genero,
+      nivel_urgencia: Number(formData.nivel_urgencia),
+      sintomas: formData.sintomas,
+      signos_vitales: {
+        presion: formData.presion,
+        temperatura: formData.temperatura,
+        frecuencia_cardiaca: formData.frecuencia_cardiaca,
+        saturacion_oxigeno: formData.saturacion_oxigeno,
+      },
+      estado: "En_espera",
+    });
 
     setFormData({
-      id_paciente: "",
       edad: "",
       genero: "Masculino",
-      nivel_urgencia: 3,
+      nivel_urgencia: "3",
       sintomas: "",
-      estado: "En atención",
+      presion: "",
+      temperatura: "",
+      frecuencia_cardiaca: "",
+      saturacion_oxigeno: "",
     });
   };
 
@@ -42,16 +58,6 @@ function PatientForm() {
       </h2>
 
       <form onSubmit={handleSubmit} className="space-y-3">
-
-        <input
-          type="text"
-          name="id_paciente"
-          placeholder="ID Paciente"
-          value={formData.id_paciente}
-          onChange={handleChange}
-          className="w-full border p-2 rounded"
-          required
-        />
 
         <input
           type="number"
@@ -90,6 +96,44 @@ function PatientForm() {
           name="sintomas"
           placeholder="Síntomas"
           value={formData.sintomas}
+          onChange={handleChange}
+          className="w-full border p-2 rounded"
+          rows={3}
+        />
+
+        <input
+          type="text"
+          name="presion"
+          placeholder="Presión arterial (ej. 120/80)"
+          value={formData.presion}
+          onChange={handleChange}
+          className="w-full border p-2 rounded"
+        />
+
+        <div className="grid grid-cols-2 gap-2">
+          <input
+            type="text"
+            name="temperatura"
+            placeholder="Temperatura (°C)"
+            value={formData.temperatura}
+            onChange={handleChange}
+            className="w-full border p-2 rounded"
+          />
+          <input
+            type="text"
+            name="frecuencia_cardiaca"
+            placeholder="Frecuencia cardiaca"
+            value={formData.frecuencia_cardiaca}
+            onChange={handleChange}
+            className="w-full border p-2 rounded"
+          />
+        </div>
+
+        <input
+          type="text"
+          name="saturacion_oxigeno"
+          placeholder="Saturación de oxígeno (%)"
+          value={formData.saturacion_oxigeno}
           onChange={handleChange}
           className="w-full border p-2 rounded"
         />

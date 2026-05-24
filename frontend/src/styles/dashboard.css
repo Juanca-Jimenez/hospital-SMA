@@ -213,6 +213,107 @@ body {
   }
 }
 
+/* EventTimeline styles */
+.event-timeline {
+  background: white;
+  border-radius: 1rem;
+  padding: 1rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.event-timeline-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #1e293b;
+  border-left: 4px solid #3b82f6;
+  padding-left: 0.75rem;
+}
+
+.event-list {
+  max-height: 500px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.event-card {
+  border-left-width: 4px;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  transition: all 0.2s;
+}
+
+.event-card-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.25rem;
+  gap: 0.5rem;
+}
+
+.event-title {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.event-agent {
+  font-size: 0.7rem;
+  color: #475569;
+  background: #e2e8f0;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+}
+
+.event-time {
+  font-size: 0.7rem;
+  color: #64748b;
+  font-family: monospace;
+}
+
+.event-description {
+  font-size: 0.85rem;
+  color: #1e293b;
+  margin: 0;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+.event-timeline-empty {
+  text-align: center;
+  padding: 2rem;
+  background: #f8fafc;
+  border-radius: 1rem;
+  color: #64748b;
+}
+
+/* Colores específicos por tipo de evento */
+.border-blue-500 { border-left-color: #3b82f6; }
+.bg-blue-50 { background-color: #eff6ff; }
+
+.border-red-500 { border-left-color: #ef4444; }
+.bg-red-50 { background-color: #fef2f2; }
+
+.border-orange-500 { border-left-color: #f97316; }
+.bg-orange-50 { background-color: #fff7ed; }
+
+.border-green-500 { border-left-color: #22c55e; }
+.bg-green-50 { background-color: #f0fdf4; }
+
+.border-purple-500 { border-left-color: #a855f7; }
+.bg-purple-50 { background-color: #faf5ff; }
+
+.border-teal-500 { border-left-color: #14b8a6; }
+.bg-teal-50 { background-color: #f0fdfa; }
+
+.border-yellow-500 { border-left-color: #eab308; }
+.bg-yellow-50 { background-color: #fefce8; }
+
+.border-gray-400 { border-left-color: #9ca3af; }
+.bg-gray-50 { background-color: #f9fafb; }
+
 /* Utility helpers for existing Tailwind-like class names used in the app */
 
 .min-h-screen { min-height: 100vh; }

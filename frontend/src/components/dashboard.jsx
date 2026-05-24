@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 
 import Navbar from "./navbar"
 import PatientForm from "./PatientForm"
-import EventTimeline from "./EventTimeLine"
+import EventTimeline from "./ventTimeLine"   // Asegúrate que el nombre del archivo coincida (EventTimeline.jsx o EventTimeLine.jsx)
 import HospitalMetrics from "./HospitalMetrics"
 import AgentStatus from "./AgentStatus"
 import PatientsTable from "./PatientsTable"
@@ -36,14 +36,29 @@ function Dashboard() {
     loadPatients()
 
     connectWebSocket((data) => {
+      // Asegurar que cada evento tenga timestamp
+      const eventWithTimestamp = {
+        ...data,
+        timestamp: data.timestamp || new Date().toISOString(),
+      }
+
       if (data.event_type === "INITIAL_SNAPSHOT") {
         setPatients(data.patients || [])
         setMetrics(data.global_state || {})
-        setEvents(data.events || [])
+        // Agregar timestamp a los eventos históricos si no lo tienen
+        const historicalEvents = (data.events || []).map(ev => ({
+          ...ev,
+          timestamp: ev.timestamp || new Date().toISOString()
+        }))
+        setEvents(historicalEvents.slice(0, 200))
         return
       }
 
-      setEvents((prev) => [data, ...prev])
+      // Nuevo evento: agregar al inicio y limitar a 200
+      setEvents((prev) => {
+        const newEvents = [eventWithTimestamp, ...prev]
+        return newEvents.slice(0, 200)
+      })
 
       const patient = data.payload?.patient
       if (patient) {

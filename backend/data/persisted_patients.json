@@ -17,5 +17,24 @@
     "departamento_asignado": "Pendiente",
     "medico_asignado": null,
     "bed_type": null
+  },
+  {
+    "edad": 79,
+    "genero": "Masculino",
+    "nivel_urgencia": 3,
+    "sintomas": "dolor de cabeza",
+    "signos_vitales": {
+      "presion": "120/80",
+      "temperatura": "39",
+      "frecuencia_cardiaca": "90",
+      "saturacion_oxigeno": "90"
+    },
+    "estado": "En_espera",
+    "id_paciente": "P70B2A3D",
+    "timestamp": "2026-05-23T21:01:53.468655",
+    "tiempo_espera_min": 0,
+    "departamento_asignado": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null
   }
 ]

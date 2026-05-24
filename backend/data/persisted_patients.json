@@ -36,5 +36,157 @@
     "departamento_asignado": "Pendiente",
     "medico_asignado": null,
     "bed_type": null
+  },
+  {
+    "edad": 24,
+    "genero": "Masculino",
+    "nivel_urgencia": 1,
+    "sintomas": "fallo respiratorio",
+    "signos_vitales": {
+      "presion": "",
+      "temperatura": "",
+      "frecuencia_cardiaca": "",
+      "saturacion_oxigeno": "20"
+    },
+    "estado": "En_espera",
+    "id_paciente": "PD54C764",
+    "timestamp": "2026-05-23T21:27:17.935199",
+    "tiempo_espera_min": 0,
+    "departamento_asignado": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null
+  },
+  {
+    "edad": 245,
+    "genero": "Masculino",
+    "nivel_urgencia": 3,
+    "sintomas": "No informado",
+    "signos_vitales": {
+      "presion": "",
+      "temperatura": "",
+      "frecuencia_cardiaca": "",
+      "saturacion_oxigeno": ""
+    },
+    "estado": "En_espera",
+    "id_paciente": "P558FA2A",
+    "timestamp": "2026-05-23T21:28:43.976886",
+    "tiempo_espera_min": 0,
+    "departamento_asignado": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null
+  },
+  {
+    "edad": 45,
+    "genero": "Masculino",
+    "nivel_urgencia": 3,
+    "sintomas": "No informado",
+    "signos_vitales": {
+      "presion": "",
+      "temperatura": "",
+      "frecuencia_cardiaca": "",
+      "saturacion_oxigeno": ""
+    },
+    "estado": "En_espera",
+    "id_paciente": "P10B717C",
+    "timestamp": "2026-05-23T21:31:30.403454",
+    "tiempo_espera_min": 0,
+    "departamento_asignado": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null
+  },
+  {
+    "edad": 45,
+    "genero": "Masculino",
+    "nivel_urgencia": 3,
+    "sintomas": "No informado",
+    "signos_vitales": {
+      "presion": "",
+      "temperatura": "",
+      "frecuencia_cardiaca": "",
+      "saturacion_oxigeno": ""
+    },
+    "estado": "En_espera",
+    "id_paciente": "P82AFCC0",
+    "timestamp": "2026-05-23T21:34:57.935838",
+    "tiempo_espera_min": 0,
+    "departamento_asignado": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null
+  },
+  {
+    "edad": 23,
+    "genero": "Masculino",
+    "nivel_urgencia": 3,
+    "sintomas": "No informado",
+    "signos_vitales": {
+      "presion": "",
+      "temperatura": "",
+      "frecuencia_cardiaca": "",
+      "saturacion_oxigeno": ""
+    },
+    "estado": "En_espera",
+    "id_paciente": "P72AAE48",
+    "timestamp": "2026-05-23T21:38:09.895748",
+    "tiempo_espera_min": 0,
+    "departamento_asignado": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null
+  },
+  {
+    "edad": 23,
+    "genero": "Masculino",
+    "nivel_urgencia": 3,
+    "sintomas": "No informado",
+    "signos_vitales": {
+      "presion": "",
+      "temperatura": "",
+      "frecuencia_cardiaca": "",
+      "saturacion_oxigeno": ""
+    },
+    "estado": "En_espera",
+    "id_paciente": "P5818F7E",
+    "timestamp": "2026-05-23T21:39:48.852540",
+    "tiempo_espera_min": 0,
+    "departamento_asignado": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null
+  },
+  {
+    "edad": 23,
+    "genero": "Masculino",
+    "nivel_urgencia": 3,
+    "sintomas": "No informado",
+    "signos_vitales": {
+      "presion": "",
+      "temperatura": "",
+      "frecuencia_cardiaca": "",
+      "saturacion_oxigeno": ""
+    },
+    "estado": "En_espera",
+    "id_paciente": "P29332E5",
+    "timestamp": "2026-05-23T21:42:52.264407",
+    "tiempo_espera_min": 0,
+    "departamento_asignado": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null
+  },
+  {
+    "edad": 23,
+    "genero": "Masculino",
+    "nivel_urgencia": 3,
+    "sintomas": "No informado",
+    "signos_vitales": {
+      "presion": "",
+      "temperatura": "",
+      "frecuencia_cardiaca": "",
+      "saturacion_oxigeno": ""
+    },
+    "estado": "En_espera",
+    "id_paciente": "P73BB283",
+    "timestamp": "2026-05-23T21:46:21.972025",
+    "tiempo_espera_min": 0,
+    "departamento_asignado": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null
   }
 ]

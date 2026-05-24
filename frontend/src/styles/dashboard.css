@@ -314,6 +314,80 @@ body {
 .border-gray-400 { border-left-color: #9ca3af; }
 .bg-gray-50 { background-color: #f9fafb; }
 
+/* AgentStatus styles */
+.agent-status-card {
+  background: white;
+  border-radius: 1rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.agent-status-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #1e293b;
+  border-left: 4px solid #3b82f6;
+  padding-left: 0.75rem;
+}
+
+.agent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.agent-item {
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background-color: #f8fafc;
+  transition: all 0.2s;
+}
+
+.agent-item.active {
+  background-color: #f0fdf4;
+  border-left: 3px solid #22c55e;
+}
+
+.agent-item.inactive {
+  background-color: #f1f5f9;
+  border-left: 3px solid #cbd5e1;
+  opacity: 0.7;
+}
+
+.agent-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #0f172a;
+  margin-bottom: 0.25rem;
+}
+
+.agent-last-action {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  color: #475569;
+}
+
+.action-desc {
+  background: #e2e8f0;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+}
+
+.action-time {
+  font-family: monospace;
+  color: #64748b;
+}
+
+.agent-no-action {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  font-style: italic;
+}
+
 /* Utility helpers for existing Tailwind-like class names used in the app */
 
 .min-h-screen { min-height: 100vh; }

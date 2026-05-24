@@ -1,79 +1,88 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState } from "react";
 
-import Navbar from "./navbar"
-import PatientForm from "./PatientForm"
-import EventTimeline from "./ventTimeLine"   // Asegúrate que el nombre del archivo coincida (EventTimeline.jsx o EventTimeLine.jsx)
-import HospitalMetrics from "./HospitalMetrics"
-import AgentStatus from "./AgentStatus"
-import PatientsTable from "./PatientsTable"
+import Navbar from "./navbar";
+import PatientForm from "./PatientForm";
+import EventTimeline from "./EventTimeLine"; // Asegúrate que el nombre del archivo coincida (EventTimeline.jsx o EventTimeLine.jsx)
+import HospitalMetrics from "./HospitalMetrics";
+import AgentStatus from "./AgentStatus";
+import PatientsTable from "./PatientsTable";
 
-import { connectWebSocket, fetchPatients } from "../services/websocket"
-import "../styles/dashboard.css"
+import { connectWebSocket, fetchPatients } from "../services/websocket";
+import "../styles/dashboard.css";
 
 function Dashboard() {
-  const [events, setEvents] = useState([])
-  const [metrics, setMetrics] = useState({})
-  const [patients, setPatients] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
+  const [events, setEvents] = useState([]);
+  const [metrics, setMetrics] = useState({});
+  const [patients, setPatients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    let mounted = true
+    let mounted = true;
+    let wsUnsubscribe = null;
 
     const loadPatients = async () => {
       try {
-        const data = await fetchPatients(100)
-        if (!mounted) return
-        setPatients(data.patients || [])
+        const data = await fetchPatients(100);
+        if (!mounted) return;
+        setPatients(data.patients || []);
       } catch (err) {
-        console.error(err)
-        setError("No se pudieron cargar los pacientes desde el CSV.")
+        console.error(err);
+        setError("No se pudieron cargar los pacientes desde el CSV.");
       } finally {
-        if (mounted) setLoading(false)
+        if (mounted) setLoading(false);
       }
-    }
+    };
 
-    loadPatients()
+    loadPatients();
 
-    connectWebSocket((data) => {
-      // Asegurar que cada evento tenga timestamp
+    // Conectar WebSocket
+    wsUnsubscribe = connectWebSocket((data) => {
+      if (!mounted) return;
+
+      // Garantizar timestamp
       const eventWithTimestamp = {
         ...data,
         timestamp: data.timestamp || new Date().toISOString(),
-      }
+      };
 
       if (data.event_type === "INITIAL_SNAPSHOT") {
-        setPatients(data.patients || [])
-        setMetrics(data.global_state || {})
-        // Agregar timestamp a los eventos históricos si no lo tienen
-        const historicalEvents = (data.events || []).map(ev => ({
+        console.log("INITIAL_SNAPSHOT recibido, eventos:", data.events?.length);
+        setPatients(data.patients || []);
+        setMetrics(data.global_state || {});
+        // Cargar eventos históricos
+        const historicalEvents = (data.events || []).map((ev) => ({
           ...ev,
-          timestamp: ev.timestamp || new Date().toISOString()
-        }))
-        setEvents(historicalEvents.slice(0, 200))
-        return
+          timestamp: ev.timestamp || new Date().toISOString(),
+        }));
+        setEvents(historicalEvents.slice(0, 200));
+        return;
       }
 
-      // Nuevo evento: agregar al inicio y limitar a 200
+      // Nuevo evento
       setEvents((prev) => {
-        const newEvents = [eventWithTimestamp, ...prev]
-        return newEvents.slice(0, 200)
-      })
+        const newEvents = [eventWithTimestamp, ...prev];
+        return newEvents.slice(0, 200);
+      });
 
-      const patient = data.payload?.patient
+      const patient = data.payload?.patient;
       if (patient) {
-        setPatients((prev) => [patient, ...prev.filter((item) => item.id_paciente !== patient.id_paciente)])
+        setPatients((prev) => [
+          patient,
+          ...prev.filter((item) => item.id_paciente !== patient.id_paciente),
+        ]);
       }
 
       if (data.global_state) {
-        setMetrics(data.global_state)
+        setMetrics(data.global_state);
       }
-    })
+    });
 
     return () => {
-      mounted = false
-    }
-  }, [])
+      mounted = false;
+      if (wsUnsubscribe && typeof wsUnsubscribe === "function") wsUnsubscribe();
+    };
+  }, []);
 
   return (
     <div className="dashboard-shell">
@@ -85,12 +94,15 @@ function Dashboard() {
             <p className="eyebrow">Tablero hospitalario</p>
             <h1 className="hero-title">Pacientes desde CSV</h1>
             <p className="hero-copy">
-              Visualiza los pacientes cargados desde el archivo CSV y monitorea los eventos en tiempo real.
+              Visualiza los pacientes cargados desde el archivo CSV y monitorea
+              los eventos en tiempo real.
             </p>
           </div>
 
           <div className="hero-status">
-            {loading ? "Cargando pacientes..." : `${patients.length} pacientes cargados`}
+            {loading
+              ? "Cargando pacientes..."
+              : `${patients.length} pacientes cargados`}
           </div>
         </div>
 
@@ -105,7 +117,7 @@ function Dashboard() {
             <EventTimeline events={events} />
           </div>
           <div className="dashboard-side-panel">
-            <AgentStatus />
+            <AgentStatus events={events} />
             <PatientForm />
           </div>
         </div>
@@ -113,7 +125,7 @@ function Dashboard() {
         <PatientsTable patients={patients} loading={loading} />
       </div>
     </div>
-  )
+  );
 }
 
-export default Dashboard
+export default Dashboard;

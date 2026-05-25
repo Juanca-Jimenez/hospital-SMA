@@ -188,5 +188,41 @@
     "departamento_asignado": "Pendiente",
     "medico_asignado": null,
     "bed_type": null
+  },
+  {
+    "edad": 34,
+    "genero": "Masculino",
+    "nivel_urgencia": 2,
+    "sintomas": "accidente corazon",
+    "signos_vitales": {
+      "presion": "140",
+      "temperatura": "47",
+      "frecuencia_cardiaca": "114",
+      "saturacion_oxigeno": "24"
+    },
+    "estado": "En_espera",
+    "id_paciente": "P7432F73",
+    "timestamp": "2026-05-25T11:20:41.034966",
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null
+  },
+  {
+    "edad": 47,
+    "genero": "Masculino",
+    "nivel_urgencia": 2,
+    "sintomas": "dolor pierna",
+    "signos_vitales": {
+      "presion": "160",
+      "temperatura": "21",
+      "frecuencia_cardiaca": "190",
+      "saturacion_oxigeno": "47"
+    },
+    "estado": "En_espera",
+    "id_paciente": "P77D527D",
+    "timestamp": "2026-05-25T13:03:27.567648",
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null
   }
 ]

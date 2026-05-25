@@ -7,13 +7,17 @@ import HospitalMetrics from "./HospitalMetrics";
 import AgentStatus from "./AgentStatus";
 import PatientsTable from "./PatientsTable";
 
-import { connectWebSocket, fetchPatients } from "../services/websocket";
+import { connectWebSocket, fetchPatients, fetchDepartments, fetchResources, fetchStaff, fetchMetrics } from "../services/websocket";
 import "../styles/dashboard.css";
 
 function Dashboard() {
   const [events, setEvents] = useState([]);
   const [metrics, setMetrics] = useState({});
   const [patients, setPatients] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [resources, setResources] = useState([]);
+  const [staff, setStaff] = useState([]);
+  const [historicalMetrics, setHistoricalMetrics] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -21,20 +25,33 @@ function Dashboard() {
     let mounted = true;
     let wsUnsubscribe = null;
 
-    const loadPatients = async () => {
+    const loadAllData = async () => {
       try {
-        const data = await fetchPatients(100);
+        // Cargar todos los datos en paralelo
+        const [patientsData, deptData, resourcesData, staffData, metricsData] = await Promise.all([
+          fetchPatients(100),
+          fetchDepartments(),
+          fetchResources(),
+          fetchStaff(),
+          fetchMetrics(),
+        ]);
+
         if (!mounted) return;
-        setPatients(data.patients || []);
+
+        setPatients(patientsData.patients || []);
+        setDepartments(deptData.departments || []);
+        setResources(resourcesData.resources || []);
+        setStaff(staffData.staff || []);
+        setHistoricalMetrics(metricsData.metrics || []);
       } catch (err) {
         console.error(err);
-        setError("No se pudieron cargar los pacientes desde el CSV.");
+        setError("No se pudieron cargar los datos desde los CSV.");
       } finally {
         if (mounted) setLoading(false);
       }
     };
 
-    loadPatients();
+    loadAllData();
 
     // Conectar WebSocket
     wsUnsubscribe = connectWebSocket((data) => {
@@ -94,15 +111,15 @@ function Dashboard() {
             <p className="eyebrow">Tablero hospitalario</p>
             <h1 className="hero-title">Pacientes desde CSV</h1>
             <p className="hero-copy">
-              Visualiza los pacientes cargados desde el archivo CSV y monitorea
+              Visualiza los pacientes, departamentos, recursos y personal cargados desde los archivos CSV y monitorea
               los eventos en tiempo real.
             </p>
           </div>
 
           <div className="hero-status">
             {loading
-              ? "Cargando pacientes..."
-              : `${patients.length} pacientes cargados`}
+              ? "Cargando datos..."
+              : `${patients.length} pacientes, ${departments.length} departamentos, ${resources.length} recursos, ${staff.length} personal`}
           </div>
         </div>
 

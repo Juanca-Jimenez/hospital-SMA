@@ -48,18 +48,17 @@ class HospitalStateManager:
         patient = {k: v for k, v in patient.items()}
         patient["id_paciente"] = str(patient.get("id_paciente", "")).strip()
         patient["nivel_urgencia"] = int(patient.get("nivel_urgencia") or 5)
+        patient["edad"] = int(patient.get("edad") or 0)
         patient["genero"] = str(patient.get("genero") or "No definido")
         patient["sintomas"] = str(patient.get("sintomas") or "No informado")
-        patient["signos_vitales"] = self._parse_vitals(patient.get("signos_vitales", {}))
-        patient["tiempo_espera_min"] = int(patient.get("tiempo_espera_min") or 0)
-        patient["departamento_asignado"] = str(patient.get("departamento_asignado") or "Pendiente")
+        patient["departamento"] = str(patient.get("departamento") or "Pendiente")
         patient["estado"] = str(patient.get("estado") or "En_espera")
         patient["medico_asignado"] = patient.get("medico_asignado") or None
         patient["bed_type"] = patient.get("bed_type") or None
         return patient
 
     def load_patients(self):
-        path = self.data_dir / "pacientes_admisiones.csv"
+        path = self.data_dir / "pacientes.csv"
         if not path.exists():
             return
 
@@ -69,43 +68,36 @@ class HospitalStateManager:
             self.patients.append(patient)
 
     def load_resources(self):
-        path = self.data_dir / "recursos_disponibilidad.csv"
+        path = self.data_dir / "recursos.csv"
         self.resources = {}
         if not path.exists():
             return
 
         df = pd.read_csv(path)
-        mapping = {
-            "Cama_UCI": "ICU",
-            "Cama_General": "GENERAL",
-            "Cama_Pediatria": "PEDIATRICS",
-            "Cama_Emergencia": "EMERGENCY",
-            "Quirofano": "SURGERY",
-        }
-
-        aggregated: Dict[str, Dict[str, Any]] = {}
+        # Estructura simplificada: departamento, total, ocupados
         for row in df.to_dict(orient="records"):
-            resource_type = mapping.get(row["tipo_recurso"], row["tipo_recurso"])
-            aggregated.setdefault(resource_type, {"total": 0, "available": 0, "occupied": 0, "detail": []})
-            total = int(row.get("total_disponible") or 0)
-            available = int(row.get("disponibles") or 0)
-            occupied = int(row.get("ocupados") or (total - available))
-            aggregated[resource_type]["total"] += total
-            aggregated[resource_type]["available"] += available
-            aggregated[resource_type]["occupied"] += occupied
-            aggregated[resource_type]["detail"].append(
-                {
-                    "departamento": row.get("departamento"),
+            departamento = str(row.get("departamento", "")).strip()
+            total = int(row.get("total") or 0)
+            ocupados = int(row.get("ocupados") or 0)
+            disponibles = total - ocupados
+            
+            # Mapear departamento a tipo de recurso
+            resource_type = self._map_department_to_resource(departamento)
+            
+            self.resources[resource_type] = {
+                "total": total,
+                "occupied": ocupados,
+                "available": disponibles,
+                "detail": [{
+                    "departamento": departamento,
                     "total": total,
-                    "available": available,
-                    "occupied": occupied,
-                }
-            )
-
-        self.resources = aggregated
+                    "available": disponibles,
+                    "occupied": ocupados,
+                }]
+            }
 
     def load_staff(self):
-        path = self.data_dir / "personal_turnos.csv"
+        path = self.data_dir / "personal.csv"
         self.staff = []
         if not path.exists():
             return
@@ -114,26 +106,37 @@ class HospitalStateManager:
         for row in df.to_dict(orient="records"):
             self.staff.append(
                 {
-                    "id_empleado": row.get("id_empleado"),
-                    "nombre": row.get("nombre"),
-                    "rol": row.get("rol"),
+                    "id_empleado": str(row.get("id_empleado", "")).strip(),
+                    "rol": str(row.get("rol") or "General"),
                     "especialidad": str(row.get("especialidad") or "General"),
-                    "turno_inicio": row.get("turno_inicio"),
-                    "turno_fin": row.get("turno_fin"),
-                    "horas_trabajadas_consecutivas": int(row.get("horas_trabajadas_consecutivas") or 0),
-                    "pacientes_atendidos_turno": int(row.get("pacientes_atendidos_turno") or 0),
+                    "departamento_1": str(row.get("departamento_1") or "Hospitalizacion"),
+                    "departamento_2": str(row.get("departamento_2") or "Emergencias"),
                     "estado": str(row.get("estado") or "Disponible"),
                 }
             )
 
     def load_historic_metrics(self):
-        path = self.data_dir / "historico_metricas.csv"
+        path = self.data_dir / "metricas.csv"
         self.historic_metrics = []
         if not path.exists():
             return
 
         df = pd.read_csv(path)
         self.historic_metrics = df.to_dict(orient="records")
+
+    def _map_department_to_resource(self, departamento: str) -> str:
+        """Mapea nombre de departamento a tipo de recurso"""
+        mapping = {
+            "Emergencias": "EMERGENCY",
+            "UCI": "ICU",
+            "Hospitalizacion": "GENERAL",
+            "Pediatria": "PEDIATRICS",
+            "Cirugia": "SURGERY",
+            "Consulta_Externa": "GENERAL",
+            "Cardiologia": "GENERAL",
+            "Radiologia": "GENERAL",
+        }
+        return mapping.get(departamento, "GENERAL")
 
     def refresh_derived_state(self):
         self.discharged_patients = [

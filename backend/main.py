@@ -19,6 +19,7 @@ from backend.agents import (
 
 app = FastAPI()
 
+# CORS Configuration - MUST be before routes
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -97,6 +98,91 @@ for event_type in [
 def get_patients(limit: int = 100):
     patients = state_manager.get_all_patients(limit)
     return {"patients": patients, "count": len(patients)}
+
+
+@app.get("/api/departments")
+def get_departments():
+    """Obtiene la disponibilidad de recursos por departamento"""
+    try:
+        import pandas as pd
+        path = DATA_DIR / "recursos.csv"
+        if not path.exists():
+            return {"departments": [], "error": "CSV no encontrado"}
+        
+        df = pd.read_csv(path)
+        departments = []
+        for _, row in df.iterrows():
+            departments.append({
+                "departamento": row.get("departamento"),
+                "total": int(row.get("total")),
+                "ocupados": int(row.get("ocupados")),
+                "disponibles": int(row.get("total")) - int(row.get("ocupados")),
+                "ocupacion_pct": round((int(row.get("ocupados")) / int(row.get("total")) * 100) if int(row.get("total")) > 0 else 0, 1)
+            })
+        
+        return {"departments": departments, "count": len(departments)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error cargando departamentos: {str(e)}")
+
+
+@app.get("/api/resources")
+def get_resources():
+    """Obtiene la disponibilidad de recursos por departamento"""
+    try:
+        import pandas as pd
+        path = DATA_DIR / "recursos.csv"
+        if not path.exists():
+            return {"resources": [], "error": "CSV no encontrado"}
+        
+        df = pd.read_csv(path)
+        resources = []
+        for _, row in df.iterrows():
+            resources.append({
+                "departamento": row.get("departamento"),
+                "total": int(row.get("total")),
+                "ocupados": int(row.get("ocupados")),
+                "disponibles": int(row.get("total")) - int(row.get("ocupados"))
+            })
+        
+        return {"resources": resources, "count": len(resources)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error cargando recursos: {str(e)}")
+
+
+@app.get("/api/staff")
+def get_staff():
+    """Obtiene el personal disponible por departamento"""
+    try:
+        import pandas as pd
+        path = DATA_DIR / "personal.csv"
+        if not path.exists():
+            return {"staff": [], "error": "CSV no encontrado"}
+        
+        df = pd.read_csv(path)
+        staff = df.where(pd.notna(df), None).to_dict(orient="records")
+        
+        return {"staff": staff, "count": len(staff)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error cargando personal: {str(e)}")
+
+
+@app.get("/api/metrics")
+def get_metrics():
+    """Obtiene las métricas resumidas del hospital"""
+    try:
+        import pandas as pd
+        path = DATA_DIR / "metricas.csv"
+        if not path.exists():
+            return {"metrics": {}, "error": "CSV no encontrado"}
+        
+        df = pd.read_csv(path)
+        if len(df) > 0:
+            metrics = df.iloc[0].to_dict()
+            return {"metrics": metrics, "count": 1}
+        else:
+            return {"metrics": {}, "count": 0}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error cargando métricas: {str(e)}")
 
 
 @app.get("/api/state")

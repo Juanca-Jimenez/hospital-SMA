@@ -4,7 +4,7 @@ function PatientsTable({ patients, loading }) {
       <div className="panel-header">
         <div>
           <h2>Pacientes hospitalarios</h2>
-          <p className="panel-subtitle">Registros cargados desde el CSV de admisiones.</p>
+          <p className="panel-subtitle">Pacientes activos del sistema.</p>
         </div>
         <span className="badge">{patients.length} registros</span>
       </div>
@@ -19,22 +19,32 @@ function PatientsTable({ patients, loading }) {
             <thead>
               <tr>
                 <th>ID</th>
+                <th>Edad</th>
+                <th>Género</th>
                 <th>Urgencia</th>
-                <th>Estado</th>
+                <th>Síntomas</th>
                 <th>Departamento</th>
-                <th>Médico</th>
-                <th>Espera (min)</th>
+                <th>Estado</th>
               </tr>
             </thead>
             <tbody>
               {patients.map((patient, index) => (
                 <tr key={index}>
                   <td>{patient.id_paciente}</td>
-                  <td>{patient.nivel_urgencia}</td>
-                  <td>{patient.estado}</td>
-                  <td>{patient.departamento_asignado || "Pendiente"}</td>
-                  <td>{patient.medico_asignado || "Sin asignar"}</td>
-                  <td>{patient.tiempo_espera_min}</td>
+                  <td>{patient.edad}</td>
+                  <td>{patient.genero}</td>
+                  <td>
+                    <span className={`urgency-badge urgency-${patient.nivel_urgencia}`}>
+                      {patient.nivel_urgencia}
+                    </span>
+                  </td>
+                  <td>{patient.sintomas}</td>
+                  <td>{patient.departamento || "Pendiente"}</td>
+                  <td>
+                    <span className={`status-badge status-${patient.estado}`}>
+                      {patient.estado}
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>

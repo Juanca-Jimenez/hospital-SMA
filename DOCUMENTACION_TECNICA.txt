@@ -1,0 +1,1230 @@
+================================================================================
+SISTEMA MULTIAGENTE DE GESTIÓN HOSPITALARIA INTEGRAL (Hospital-SMA)
+================================================================================
+
+Documentación Técnica Completa
+
+================================================================================
+1. DESCRIPCIÓN GENERAL
+================================================================================
+
+Hospital-SMA es un sistema de gestión hospitalaria basado en arquitectura de
+agentes autónomos que toman decisiones colaborativas sobre la asignación de
+recursos, triaje de pacientes y optimización de flujos de trabajo en tiempo real.
+
+El sistema NO es un CRUD tradicional, sino un verdadero sistema multiagente (SMA)
+donde:
+  • Los agentes son autónomos y se comunican por eventos
+  • Las decisiones son trazables y explicables
+  • El estado es centralizado y se actualiza en tiempo real
+  • Los datos iniciales se cargan desde archivos CSV
+  • Las decisiones se registran con razones y datos de origen
+
+================================================================================
+2. ARQUITECTURA GENERAL
+================================================================================
+
+La arquitectura se divide en 3 capas:
+
+┌─────────────────────────────────────────────────────────────┐
+│                     FRONTEND (React + Vite)                 │
+│  - Dashboard interactivo                                    │
+│  - Formulario de nuevos pacientes                           │
+│  - Timeline de eventos en tiempo real                       │
+│  - Métricas hospitalarias                                   │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ WebSocket
+                    ws://localhost:8000/ws
+                           │
+┌──────────────────────────▼──────────────────────────────────┐
+│               EVENT BUS (Comunicación asíncrona)            │
+│  - Pub/Sub en memoria                                       │
+│  - Eventos: PATIENT_ARRIVED, PATIENT_TRIAGED, etc.         │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+┌──────────────────────────▼──────────────────────────────────┐
+│                  AGENTES MULTIAGENTE                        │
+│  - TriageAgent: Clasifica prioridad                         │
+│  - ResourceAgent: Asigna camas                              │
+│  - StaffAgent: Asigna personal médico                       │
+│  - ForecastAgent: Detecta saturación                        │
+│  - WorkflowAgent: Optimiza flujos                           │
+│  - QualityAgent: Valida decisiones                          │
+│  - OrchestratorAgent: Supervisa todo                        │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+┌──────────────────────────▼──────────────────────────────────┐
+│         STATE MANAGER (Fuente única de verdad)             │
+│  - Carga CSV inicialmente                                   │
+│  - Mantiene estado global hospitalario                      │
+│  - Registra decisiones trazables                            │
+│  - Notifica cambios en tiempo real                          │
+└─────────────────────────────────────────────────────────────┘
+           │              │              │
+           ▼              ▼              ▼
+    ┌────────────┐ ┌─────────────┐ ┌──────────────┐
+    │   DATOS    │ │   RECURSOS  │ │   PERSONAL   │
+    │    CSV     │ │     CSV     │ │    CSV       │
+    └────────────┘ └─────────────┘ └──────────────┘
+
+================================================================================
+3. FLUJO DE UN PACIENTE (EJEMPLO)
+================================================================================
+
+Un usuario registra un paciente crítico con síntomas cardiacos:
+
+PASO 1: ENTRADA DEL PACIENTE
+──────────────────────────────
+Frontend → Formulario "Nuevo Paciente"
+  • Edad: 68
+  • Género: Masculino
+  • Nivel urgencia: 1 (Crítico)
+  • Síntomas: "Dolor torácico agudo"
+  • Presión: 80/50
+  • Frecuencia cardíaca: 145
+  • Saturación O2: 82%
+
+Frontend → WebSocket
+  Envía: {
+    "action": "NEW_PATIENT",
+    "patient": {
+      "edad": 68,
+      "genero": "Masculino",
+      "nivel_urgencia": 1,
+      "sintomas": "Dolor torácico agudo",
+      "signos_vitales": {
+        "presion": "80/50",
+        "temperatura": "37",
+        "frecuencia_cardiaca": "145",
+        "saturacion_oxigeno": "82"
+      },
+      "estado": "En_espera"
+    }
+  }
+
+
+PASO 2: RECEPCIÓN EN BACKEND
+────────────────────────────
+Backend main.py → websocket_endpoint()
+  1. Recibe el JSON
+  2. Genera ID único: P12A4B9F
+  3. Agrega timestamp: 2026-05-23 14:30:45
+  4. Llama: state_manager.add_patient(patient)
+     → Normaliza datos
+     → Persiste en memoria
+     → Inserta en JSON local
+  5. Publica evento: await event_bus.publish("PATIENT_ARRIVED", patient)
+
+
+PASO 3: PROCESAMIENTO POR AGENTES (CADENA DE EVENTOS)
+────────────────────────────────────────────────────
+
+┌─ EVENTO: PATIENT_ARRIVED
+│  └─ TriageAgent escucha
+│     ├─ Clasifica prioridad usando rules.py
+│     │  • nivel_urgencia = 1 → CRITICAL
+│     │  • Búsqueda de keywords en síntomas
+│     │  • Validación de signos vitales (SpO2=82% < 85%)
+│     │  → RESULTADO: CRITICAL
+│     ├─ Genera razón: "Nivel 1 + Signos críticos detectados"
+│     ├─ Registra decisión en trace:
+│     │  {
+│     │    "patient_id": "P12A4B9F",
+│     │    "event": "PATIENT_TRIAGED",
+│     │    "agent": "TriageAgent",
+│     │    "decision": "CRITICAL",
+│     │    "reason": "Nivel 1 + Signos críticos",
+│     │    "source_data": {...}
+│     │  }
+│     └─ Publica: PATIENT_TRIAGED
+│
+├─ EVENTO: PATIENT_TRIAGED
+│  └─ ResourceAgent escucha
+│     ├─ Obtiene prioridad: CRITICAL
+│     ├─ Busca recurso disponible
+│     │  • Preferencias: ["ICU", "EMERGENCY", "GENERAL"]
+│     │  • Consulta: state_manager.resources["ICU"]
+│     │  • ICU disponibles: 2 camas
+│     ├─ Asigna: patient.bed_type = "ICU"
+│     ├─ Actualiza recursos:
+│     │  • ICU.available: 2 → 1
+│     │  • ICU.occupied: 8 → 9
+│     ├─ Asigna departamento: "UCI"
+│     ├─ Registra decisión
+│     └─ Publica: RESOURCE_ALLOCATED
+│
+├─ EVENTO: RESOURCE_ALLOCATED
+│  ├─ StaffAgent escucha
+│  │  ├─ Selecciona especialidad: "Cardiologia" (por síntomas)
+│  │  ├─ Busca disponible: state_manager.get_available_staff("Cardiologia")
+│  │  ├─ Encuentra: Dra. Laura Gómez Vásquez (Cardiología)
+│  │  ├─ Asigna al paciente
+│  │  ├─ Marca staff como "Ocupado"
+│  │  ├─ Registra decisión
+│  │  └─ Publica: STAFF_ASSIGNED
+│  │
+│  ├─ ForecastAgent escucha
+│  │  ├─ Calcula ocupación UCI:
+│  │  │  ocupacion = (9 camas ocupadas / 25 totales) * 100 = 36%
+│  │  ├─ Compara con umbral: 36% < 90%
+│  │  ├─ No hay saturación → Sin alerta
+│  │  └─ No publica evento
+│  │
+│  ├─ QualityAgent escucha
+│  │  ├─ Valida triage: CRITICAL ✓
+│  │  ├─ Valida asignación: Bed asignada ✓
+│  │  └─ Sin alertas críticas
+│  │
+│  └─ OrchestratorAgent escucha
+│     ├─ Registra observación
+│     └─ Continúa supervisando
+│
+└─ TODOS LOS EVENTOS
+   └─ broadcaster() → WebSocket → Frontend actualiza
+
+PASO 4: ACTUALIZACIÓN DEL ESTADO GLOBAL
+────────────────────────────────────────
+state_manager.get_global_state() retorna:
+{
+  "resources": {
+    "ICU": {
+      "total": 25,
+      "available": 1,
+      "occupied": 9
+    },
+    ...
+  },
+  "active_patients": 87,
+  "waiting_patients": 3,
+  "available_staff": 18,
+  "alerts": [
+    "2026-05-23 14:30:50 - Paciente crítico asignado a UCI"
+  ],
+  "event_timeline": [
+    {
+      "event_type": "STAFF_ASSIGNED",
+      "timestamp": "2026-05-23 14:30:48",
+      "payload": {...}
+    },
+    ...
+  ],
+  "decision_trace": [
+    {
+      "patient_id": "P12A4B9F",
+      "event": "STAFF_ASSIGNED",
+      "agent": "StaffAgent",
+      "decision": "Dra. Laura Gómez Vásquez",
+      "reason": "Especialista disponible en Cardiología",
+      "source_data": {...}
+    },
+    ...
+  ]
+}
+
+PASO 5: TRANSMISIÓN AL FRONTEND
+───────────────────────────────
+Cada evento que se publica se transmite por WebSocket:
+{
+  "event_type": "STAFF_ASSIGNED",
+  "payload": {
+    "patient": {...},
+    "staff": {
+      "nombre": "Dra. Laura Gómez Vásquez",
+      "especialidad": "Cardiología",
+      "estado": "Ocupado"
+    },
+    "specialty": "Cardiologia",
+    "reason": "Especialista disponible en Cardiología",
+    "timestamp": "2026-05-23 14:30:48"
+  },
+  "global_state": {
+    "active_patients": 87,
+    "available_staff": 18,
+    ...
+  }
+}
+
+PASO 6: VISUALIZACIÓN EN FRONTEND
+─────────────────────────────────
+Dashboard React actualiza:
+
+┌─ Métricas
+│  • Pacientes activos: 87
+│  • Camas UCI libres: 1
+│  • Personal disponible: 18
+│  └─ Ocupación UCI: 36%
+
+├─ Tabla de Pacientes
+│  • ID: P12A4B9F
+│  • Urgencia: 1 (Crítico)
+│  • Estado: En_atencion
+│  • Departamento: UCI
+│  • Médico: Dra. Laura Gómez Vásquez
+│  └─ Espera: 2 min
+
+└─ Timeline de Eventos
+   ├─ PATIENT_TRIAGED: "Nivel 1 + Signos críticos"
+   ├─ RESOURCE_ALLOCATED: "Asignado a UCI-09"
+   └─ STAFF_ASSIGNED: "Dra. Laura Gómez Vásquez"
+
+================================================================================
+4. ARCHIVOS CSV Y CARGA INICIAL
+================================================================================
+
+El sistema carga automáticamente 4 archivos CSV al iniciar:
+
+4.1 PACIENTES_ADMISIONES.CSV
+────────────────────────────
+Contiene: pacientes históricos del hospital
+
+Columnas:
+  • timestamp: fecha/hora de ingreso
+  • id_paciente: identificador único (P000001, P000002, ...)
+  • edad: años
+  • genero: M/F
+  • nivel_urgencia: 1-5 (1=crítico, 5=no urgente)
+  • sintomas: descripción textual
+  • signos_vitales: JSON con presión, temperatura, FC, SpO2
+  • tiempo_espera_min: minutos en espera
+  • departamento_asignado: UCI, Emergencias, etc.
+  • estado: Alta, Transferido, En_atencion, En_espera
+
+Ejemplo:
+2026-05-09 00:31:12,P000001,19,M,1,Traumatismo craneoencefálico severo,...
+
+Uso:
+  → state_manager.load_patients()
+  → Se normalizan los datos
+  → Se separan en: active_patients, discharged_patients
+  → Se exponen en /api/patients
+
+
+4.2 RECURSOS_DISPONIBILIDAD.CSV
+───────────────────────────────
+Contiene: estado de camas, quirófanos, equipos
+
+Columnas:
+  • timestamp: última actualización
+  • tipo_recurso: Cama_UCI, Cama_General, Cama_Pediatria, etc.
+  • departamento: UCI_Norte, Hospitalizacion_A, etc.
+  • total_disponible: cantidad total del recurso
+  • ocupados: cantidad en uso
+  • disponibles: cantidad libre
+  • proximo_disponible_min: tiempo estimado de liberación
+
+Ejemplo:
+2026-05-10 00:00:00,Cama_UCI,UCI_Norte,25,18,7,0
+
+Agregación en el sistema:
+  {"ICU": {"total": 45, "available": 9, "occupied": 36}}
+
+Uso:
+  → state_manager.load_resources()
+  → Agregación por tipo de recurso
+  → Actualización dinámica al asignar recursos
+
+
+4.3 PERSONAL_TURNOS.CSV
+──────────────────────
+Contiene: personal médico y su disponibilidad
+
+Columnas:
+  • timestamp: momento del registro
+  • id_empleado: E0003, E0004, etc.
+  • nombre: nombre completo
+  • rol: Especialista, Medico_General, Enfermera, etc.
+  • especialidad: Cardiología, Traumatología, Pediatría, etc.
+  • turno_inicio/fin: horario
+  • horas_trabajadas_consecutivas: fatiga
+  • pacientes_atendidos_turno: carga actual
+  • estado: Disponible, Ocupado, Descanso, Fuera_turno
+
+Ejemplo:
+2026-05-10 03:00:00,E0008,Dra. Laura Gómez Vásquez,Especialista,...
+
+Uso:
+  → state_manager.load_staff()
+  → Filtrado de disponibles: estado == "Disponible"
+  → Selección por especialidad usando get_available_staff()
+  → Asignación y cambio de estado
+
+
+4.4 HISTORICO_METRICAS.CSV
+──────────────────────────
+Contiene: serie temporal de saturación, admisiones, etc.
+
+Columnas:
+  • fecha/hora: timestamp
+  • admisiones_hora: pacientes ingresados por hora
+  • casos_urgentes_pct: porcentaje de casos urgentes
+  • tiempo_atencion_promedio_min: media de atención
+  • saturacion_maxima_pct: % de ocupación máxima
+
+Ejemplo:
+2026-05-10,00:00,Domingo,5,31.7,40,66.1
+
+Uso:
+  → state_manager.load_historic_metrics()
+  → Utilizado por ForecastAgent para detectar patrones
+  → Comparación con situación actual
+
+
+4.5 PERSISTED_PATIENTS.JSON (GENERADO)
+──────────────────────────────────────
+Creado automáticamente cuando se añaden nuevos pacientes desde el frontend.
+
+Formato:
+[
+  {
+    "id_paciente": "P12A4B9F",
+    "timestamp": "2026-05-23 14:30:45",
+    "edad": 68,
+    "genero": "Masculino",
+    "nivel_urgencia": 1,
+    "sintomas": "Dolor torácico agudo",
+    "signos_vitales": {...},
+    "estado": "En_espera",
+    "departamento_asignado": null,
+    "medico_asignado": null,
+    "bed_type": null
+  }
+]
+
+NO se sobrescribe el CSV original, solo se guarda en JSON para persistencia local.
+
+
+================================================================================
+5. SISTEMA DE EVENTOS Y EVENT BUS
+================================================================================
+
+El Event Bus es el corazón de la comunicación multiagente.
+
+5.1 ARQUITECTURA DEL EVENT BUS
+──────────────────────────────
+archivo: backend/event_bus.py
+
+Clase EventBus:
+  • subscribers: Dict[str, List[Callable]]
+    Ejemplo:
+    {
+      "PATIENT_ARRIVED": [TriageAgent.handle_patient, OrchestratorAgent.observe_flow],
+      "PATIENT_TRIAGED": [ResourceAgent.allocate_resource, QualityAgent.validate_triage],
+      ...
+    }
+
+Métodos principales:
+  1. subscribe(event_type: str, callback: Callable)
+     → Registra un agente para escuchar un evento
+     → Se ejecuta al iniciar el sistema
+     → Ejemplo: event_bus.subscribe("PATIENT_ARRIVED", triage_agent.handle_patient)
+
+  2. async publish(event_type: str, data: Dict)
+     → Publica un evento
+     → Ejecuta TODOS los callbacks registrados en paralelo (asyncio.gather)
+     → Espera a que todos terminen
+     → Ejemplo: await event_bus.publish("PATIENT_ARRIVED", patient_data)
+
+
+5.2 FLUJO DE PUBLICACIÓN
+────────────────────────
+publish("PATIENT_ARRIVED", patient)
+  │
+  ├─ Busca subscribers["PATIENT_ARRIVED"]
+  │  └─ Encuentra: [TriageAgent.handle_patient, OrchestratorAgent.observe_flow]
+  │
+  ├─ Crea tareas asincrónicas en paralelo:
+  │  ├─ task1 = asyncio.create_task(TriageAgent.handle_patient(patient))
+  │  └─ task2 = asyncio.create_task(OrchestratorAgent.observe_flow(patient))
+  │
+  └─ Espera: await asyncio.gather(task1, task2)
+
+
+5.3 EVENTOS PRINCIPALES
+───────────────────────
+El sistema utiliza estos eventos:
+
+1. PATIENT_ARRIVED
+   → Triggerado cuando: nuevo paciente ingresa al sistema
+   → Escuchan: TriageAgent, OrchestratorAgent
+   → Datos: {patient: {...}}
+
+2. PATIENT_TRIAGED
+   → Triggerado cuando: TriageAgent termina clasificación
+   → Escuchan: ResourceAgent, QualityAgent, WorkflowAgent
+   → Datos: {patient, priority, reason, ...}
+
+3. RESOURCE_ALLOCATED
+   → Triggerado cuando: ResourceAgent asigna cama
+   → Escuchan: StaffAgent, ForecastAgent, QualityAgent, WorkflowAgent
+   → Datos: {patient, priority, bed, reason, ...}
+
+4. STAFF_ASSIGNED
+   → Triggerado cuando: StaffAgent asigna doctor
+   → Escuchan: QualityAgent, OrchestratorAgent
+   → Datos: {patient, staff, specialty, reason, ...}
+
+5. SATURATION_WARNING
+   → Triggerado cuando: ForecastAgent detecta >90% ocupación
+   → Escuchan: QualityAgent, OrchestratorAgent
+   → Datos: {resource, occupancy, warning, ...}
+
+6. WORKFLOW_ALERT
+   → Triggerado cuando: WorkflowAgent detecta congestión
+   → Escuchan: OrchestratorAgent
+   → Datos: {patient, action, reason, ...}
+
+7. CRITICAL_ALERT
+   → Triggerado cuando: QualityAgent detecta situación crítica
+   → Escuchan: OrchestratorAgent
+   → Datos: {message, patient, ...}
+
+
+================================================================================
+6. AGENTES MULTIAGENTE (DETALLE TÉCNICO)
+================================================================================
+
+6.1 ARQUITECTURA DE AGENTES
+────────────────────────────
+Todos los agentes heredan de BaseAgent:
+
+class BaseAgent:
+    def __init__(self, name: str, event_bus, state_manager):
+        self.name = name
+        self.event_bus = event_bus
+        self.state_manager = state_manager
+
+Cada agente se suscribe a eventos específicos:
+    self.event_bus.subscribe("EVENT_NAME", self.handle_event)
+
+
+6.2 TRIAGE AGENT
+────────────────
+Responsabilidad: Clasificar pacientes por prioridad
+
+Entrada: PATIENT_ARRIVED event
+Proceso:
+  1. Obtiene patient data
+  2. Llama: priority = classify_priority(patient)
+     Reglas en backend/rules.py:
+     • Si nivel_urgencia == 1 → CRITICAL
+     • Si síntomas contienen keywords críticas → CRITICAL
+     • Si SpO2 < 85% → CRITICAL
+     • Si síntomas contienen keywords altas → HIGH
+     • Si no → NORMAL
+
+  3. Genera razón explicativa
+  4. Registra decisión:
+     state_manager.record_decision(
+       patient_id=patient["id_paciente"],
+       event="PATIENT_TRIAGED",
+       agent="TriageAgent",
+       decision=priority,
+       reason="Explicación de la clasificación",
+       source_data={síntomas, signos_vitales, ...}
+     )
+  5. Publica: PATIENT_TRIAGED
+
+Salida: Event PATIENT_TRIAGED {patient, priority, reason, ...}
+
+
+6.3 RESOURCE AGENT
+───────────────────
+Responsabilidad: Asignar camas según prioridad y disponibilidad
+
+Entrada: PATIENT_TRIAGED event
+Proceso:
+  1. Obtiene priority del evento
+  2. Define preferencias:
+     • CRITICAL → ["ICU", "EMERGENCY", "GENERAL"]
+     • HIGH → ["EMERGENCY", "ICU", "GENERAL"]
+     • NORMAL → ["GENERAL", "PEDIATRICS", "EMERGENCY"]
+
+  3. Itera preferencias:
+     for resource_type in preferences:
+       if state_manager.resources[resource_type]["available"] > 0:
+         # Encontró recurso disponible
+
+  4. Asigna:
+     • Reduce available: ICU.available -= 1
+     • Aumenta occupied: ICU.occupied += 1
+     • Actualiza paciente: patient["bed_type"] = "ICU"
+     • Actualiza estado: patient["estado"] = "En_atencion"
+
+  5. Registra decisión
+  6. Publica: RESOURCE_ALLOCATED
+
+Salida: Event RESOURCE_ALLOCATED {patient, bed, reason, ...}
+
+
+6.4 STAFF AGENT
+────────────────
+Responsabilidad: Asignar personal médico especializado
+
+Entrada: RESOURCE_ALLOCATED event
+Proceso:
+  1. Obtiene patient y priority
+  2. Selecciona especialidad:
+     specialty = state_manager.select_staff_specialty(patient, priority)
+     • Analiza síntomas (busca palabras clave)
+     • Resultado: "Cardiologia", "Traumatologia", "Pediatria", etc.
+
+  3. Busca disponibles:
+     candidates = state_manager.get_available_staff(specialty)
+     • Filtra: estado == "Disponible" AND especialidad contiene keyword
+
+  4. Si no hay especialistas, busca genéricos:
+     candidates = state_manager.get_available_staff()
+
+  5. Selecciona primero disponible:
+     staff_member = candidates[0]
+
+  6. Actualiza:
+     • staff_member["estado"] = "Ocupado"
+     • staff_member["pacientes_atendidos_turno"] += 1
+     • patient["medico_asignado"] = staff_member["nombre"]
+
+  7. Registra decisión
+  8. Publica: STAFF_ASSIGNED
+
+Salida: Event STAFF_ASSIGNED {patient, staff, specialty, reason, ...}
+
+
+6.5 FORECAST AGENT
+────────────────────
+Responsabilidad: Predecir y alertar sobre saturación
+
+Entrada: RESOURCE_ALLOCATED event
+Proceso:
+  1. Calcula ocupación:
+     occupancy = state_manager.get_occupancy_percentage("ICU")
+     occupancy = ((total - available) / total) * 100
+
+  2. Compara con umbral:
+     if occupancy >= 90:
+       → Genera alerta
+       → Publica: SATURATION_WARNING
+
+  3. Usa datos históricos:
+     state_manager.historic_metrics
+     Para detectar patrones en series temporales
+
+Salida: Event SATURATION_WARNING {resource, occupancy, warning, ...}
+
+
+6.6 WORKFLOW AGENT
+────────────────────
+Responsabilidad: Detectar congestión y sugerir redistribución
+
+Entrada: RESOURCE_ALLOCATED event
+Proceso:
+  1. Obtiene estado:
+     state = state_manager.get_global_state()
+
+  2. Analiza métricas:
+     if waiting_patients > 8 OR emergency_available < 3:
+       → Congestión detectada
+
+  3. Registra decisión
+  4. Publica: WORKFLOW_ALERT
+
+Salida: Event WORKFLOW_ALERT {patient, action, reason, ...}
+
+
+6.7 QUALITY AGENT
+────────────────────
+Responsabilidad: Validar decisiones y generar alertas críticas
+
+Entrada: PATIENT_TRIAGED, RESOURCE_ALLOCATED, STAFF_ASSIGNED, SATURATION_WARNING
+Proceso:
+  1. Valida triaje:
+     if priority == "CRITICAL":
+       → Registra validación
+
+  2. Valida asignación:
+     if should_generate_critical_alert(priority, bed):
+       → Si paciente crítico sin cama UCI → ALERTA
+       → Publica: CRITICAL_ALERT
+
+  3. Valida personal:
+     if not staff_assigned:
+       → Genera alerta "No se pudo asignar personal"
+
+  4. Valida saturación:
+     Registra observación de saturación
+
+Salida: Event CRITICAL_ALERT {message, patient, ...}
+
+
+6.8 ORCHESTRATOR AGENT
+───────────────────────
+Responsabilidad: Supervisión centralizada y registro de flujo
+
+Entrada: TODOS los eventos
+Proceso:
+  1. Se suscribe a todos los eventos principales:
+     ["PATIENT_ARRIVED", "PATIENT_TRIAGED", "RESOURCE_ALLOCATED", ...]
+
+  2. Observa el flujo completo
+  3. Registra transiciones de estado
+  4. No toma decisiones, solo supervisa
+
+Salida: Eventos de observación para auditoria
+
+
+================================================================================
+7. STATE MANAGER (GESTIÓN DEL ESTADO)
+================================================================================
+
+archivo: backend/state_manager.py
+
+7.1 INICIALIZACIÓN
+───────────────────
+Cuando se crea HospitalStateManager():
+  1. load_historic_metrics() → Carga historico_metricas.csv
+  2. load_resources() → Carga recursos_disponibilidad.csv
+  3. load_staff() → Carga personal_turnos.csv
+  4. load_patients() → Carga pacientes_admisiones.csv
+  5. refresh_derived_state() → Calcula estados derivados
+
+El estado inicial es la "fuente de verdad" del sistema.
+
+
+7.2 ESTRUCTURAS DE DATOS PRINCIPALES
+──────────────────────────────────────
+self.patients: List[Dict]
+  → Todos los pacientes (históricos + nuevos)
+
+self.active_patients: List[Dict]
+  → Pacientes en atención (derivado, se actualiza)
+
+self.waiting_patients: List[Dict]
+  → Pacientes esperando asignación (derivado)
+
+self.discharged_patients: List[Dict]
+  → Pacientes dados de alta (derivado)
+
+self.resources: Dict[str, Dict]
+  {
+    "ICU": {"total": 45, "available": 9, "occupied": 36},
+    "GENERAL": {"total": 155, "available": 45, "occupied": 110},
+    ...
+  }
+
+self.staff: List[Dict]
+  → Personal con estado, especialidad, carga
+
+self.alerts: List[str]
+  → Historial de alertas generadas
+
+self.event_timeline: List[Dict]
+  → Últimos 200 eventos publicados
+
+self.decision_trace: List[Dict]
+  → Últimas 200 decisiones de agentes (TRAZABILIDAD)
+
+
+7.3 MÉTODOS CLAVE
+──────────────────
+add_patient(patient)
+  • Normaliza datos
+  • Inserta al inicio de la lista
+  • Llama refresh_derived_state()
+  • Persiste en JSON
+  • Registra evento
+
+allocate_resource(priority, patient)
+  • Busca recurso según prioridad
+  • Decrementa available, incrementa occupied
+  • Actualiza departamento del paciente
+  • Cambia estado a "En_atencion"
+  • Retorna tipo de recurso asignado
+
+assign_staff(patient, specialty)
+  • Busca personal con especialidad
+  • Marca como "Ocupado"
+  • Incrementa pacientes_atendidos_turno
+  • Actualiza medico_asignado del paciente
+  • Retorna staff member
+
+get_available_staff(specialty)
+  • Filtra: estado == "Disponible"
+  • Si specialty dado, filtra por especialidad
+  • Retorna lista ordenada
+
+record_decision(patient_id, event, agent, decision, reason, source_data)
+  • Crea entry en decision_trace
+  • Almacena para auditoria y explicabilidad
+  • Limita a 200 entries (FIFO)
+
+add_event(event_type, payload)
+  • Registra evento en event_timeline
+  • Ordena por timestamp (más recientes primero)
+  • Limita a 200 eventos
+
+add_alert(message)
+  • Añade alerta
+  • Registra automáticamente evento
+  • Imprime en servidor
+
+get_global_state()
+  • Retorna snapshot actual:
+    {
+      "resources": {...},
+      "active_patients": count,
+      "waiting_patients": count,
+      "discharged_patients": count,
+      "available_staff": count,
+      "total_staff": count,
+      "alerts": [...],
+      "event_timeline": [...],
+      "decision_trace": [...]
+    }
+
+get_occupancy_percentage(resource_type)
+  • Calcula: ((total - available) / total) * 100
+  • Retorna porcentaje
+
+
+================================================================================
+8. COMUNICACIÓN FRONTEND-BACKEND
+================================================================================
+
+8.1 WEBSOCKET
+──────────────
+Puerto: 8000
+URL: ws://localhost:8000/ws
+Protocolo: WebSocket JSON
+
+Cliente (Frontend): envia
+{"action": "NEW_PATIENT", "patient": {...}}
+
+Servidor (Backend): recibe
+1. Valida JSON
+2. Genera ID
+3. Normaliza
+4. Publica evento
+5. Responde vía WebSocket broadcast
+
+Cliente: recibe
+{
+  "event_type": "PATIENT_TRIAGED",
+  "payload": {...},
+  "global_state": {...}
+}
+
+
+8.2 ENDPOINTS REST
+──────────────────
+GET /api/patients?limit=100
+  → Retorna lista de pacientes activos
+  → Respuesta: {"patients": [...], "count": N}
+
+GET /api/state
+  → Retorna estado global actual
+  → Respuesta: {global_state}
+
+GET /api/health
+  → Verifica que backend está operacional
+  → Respuesta: {"status": "ok", "active_patients": N, "resources": {...}}
+
+
+8.3 FLUJO WEBSOCKET EN DETALLE
+────────────────────────────────
+Frontend conecta:
+  socket = new WebSocket("ws://localhost:8000/ws")
+
+Backend acepta:
+  async def websocket_endpoint(websocket):
+    await ws_manager.connect(websocket)
+
+Backend envía snapshot inicial:
+  snapshot = {
+    "event_type": "INITIAL_SNAPSHOT",
+    "patients": [...],
+    "global_state": {...},
+    "events": [...],
+    "decisions": [...]
+  }
+  await websocket.send_text(json.dumps(snapshot))
+
+Frontend recibe y procesa:
+  socket.onmessage = (event) => {
+    const data = JSON.parse(event.data)
+    onMessage(data) // Actualiza React state
+  }
+
+Frontend envía nuevo paciente:
+  socket.send(JSON.stringify({
+    action: "NEW_PATIENT",
+    patient: {...}
+  }))
+
+Backend recibe:
+  data_text = await websocket.receive_text()
+  payload = json.loads(data_text)
+  if payload.get("action") == "NEW_PATIENT":
+    state_manager.add_patient(payload["patient"])
+    await event_bus.publish("PATIENT_ARRIVED", patient)
+
+Backend broadcast a todos los clientes:
+  await ws_manager.broadcast({
+    "event_type": "PATIENT_TRIAGED",
+    "payload": {...},
+    "global_state": {...}
+  })
+
+Frontend actualiza UI:
+  setEvents((prev) => [data, ...prev])
+  setMetrics(data.global_state)
+  setPatients((prev) => [...])
+
+
+================================================================================
+9. TRAZABILIDAD Y EXPLICABILIDAD
+================================================================================
+
+Cada decisión se registra con:
+  • patient_id: Quién
+  • event: Qué evento
+  • agent: Cuál agente decidió
+  • timestamp: Cuándo
+  • decision: Cuál fue la decisión
+  • reason: Por qué se tomó
+  • source_data: Datos que se usaron
+
+Ejemplo real:
+{
+  "patient_id": "P12A4B9F",
+  "event": "PATIENT_TRIAGED",
+  "agent": "TriageAgent",
+  "timestamp": "2026-05-23 14:30:45",
+  "decision": "CRITICAL",
+  "reason": "Nivel 1: paciente con signos críticos o urgencia máxima",
+  "source_data": {
+    "nivel_urgencia": 1,
+    "sintomas": "Dolor torácico agudo",
+    "signos_vitales": {
+      "saturacion_oxigeno": 82,
+      "frecuencia_cardiaca": 145,
+      "presion": "80/50"
+    },
+    "reglas_aplicadas": ["nivel_urgencia", "signos_vitales"]
+  }
+}
+
+Acceso a trazabilidad:
+  • Frontend: event_timeline y decision_trace en estado global
+  • Visualización: Panel de decisiones con razones
+  • Auditoría: Se puede reconstruir flujo completo de paciente
+
+
+================================================================================
+10. REGLAS DE NEGOCIO (RULES.PY)
+================================================================================
+
+archivo: backend/rules.py
+
+classify_priority(patient) → str
+  Reglas de triage:
+  • Si nivel_urgencia == 1 → CRITICAL
+  • Si síntomas contienen:
+    ["paro", "infarto", "convuls", "shock", "hemorrag",
+     "insuficiencia respiratoria"] → CRITICAL
+  • Si SpO2 < 85 OR "70" in vital_signs → CRITICAL
+  • Si síntomas contienen:
+    ["dolor toracico", "fractura", "fiebre alta",
+     "dificultad respiratoria"] → HIGH
+  • Si no → NORMAL
+
+detect_saturation(occupancy_percentage) → bool
+  • Si occupancy >= 90% → True (Saturación detectada)
+
+should_generate_critical_alert(priority, bed) → bool
+  • Si priority == "CRITICAL" AND bed == None → True
+    (Paciente crítico sin cama asignada)
+
+staff_fatigue(hours_worked) → bool
+  • Si horas >= 12 → True (Personal fatigado)
+
+
+================================================================================
+11. COMPONENTES FRONTEND (REACT)
+================================================================================
+
+11.1 ESTRUCTURA
+────────────────
+frontend/
+├── src/
+│   ├── App.jsx (Componente principal)
+│   ├── main.jsx (Bootstrap React)
+│   ├── services/
+│   │   └── websocket.js (Lógica de WebSocket)
+│   ├── components/
+│   │   ├── dashboard.jsx (Contenedor principal)
+│   │   ├── HospitalMetrics.jsx (Tarjetas de métricas)
+│   │   ├── PatientForm.jsx (Formulario nuevo paciente)
+│   │   ├── PatientsTable.jsx (Tabla de pacientes)
+│   │   ├── EventTimeline.jsx (Timeline de eventos)
+│   │   ├── AgentStatus.jsx (Estado de agentes)
+│   │   └── navbar.jsx (Barra de navegación)
+│   └── styles/
+│       ├── dashboard.css
+│       └── index.css
+├── vite.config.js (Config Vite)
+├── package.json (Dependencias)
+└── index.html (HTML base)
+
+
+11.2 FLUJO DE DATOS REACT
+──────────────────────────
+App.jsx
+  └─ Dashboard
+      ├─ Navbar
+      ├─ HeroSection
+      ├─ HospitalMetrics (recibe: metrics)
+      ├─ EventTimeline (recibe: events)
+      │   └─ Muestra últimos 50 eventos
+      ├─ PatientForm (envía: NEW_PATIENT via WebSocket)
+      ├─ AgentStatus (static list)
+      └─ PatientsTable (recibe: patients, loading)
+          └─ Muestra 200 pacientes activos
+
+
+11.3 ESTADO REACT (DASHBOARD)
+──────────────────────────────
+const [events, setEvents] = useState([])
+  → Últimos eventos recibidos del WebSocket
+  → Se insertan al inicio: [data, ...prev]
+
+const [metrics, setMetrics] = useState({})
+  → global_state del backend
+  → Se actualiza con cada evento
+
+const [patients, setPatients] = useState([])
+  → Lista de pacientes activos
+  → Se actualiza cuando llega INITIAL_SNAPSHOT
+  → Se añaden nuevos pacientes al inicio
+
+const [loading, setLoading] = useState(true)
+  → Indica si se están cargando datos iniciales
+
+const [error, setError] = useState("")
+  → Mensajes de error
+
+
+11.4 CICLO DE VIDA (useEffect)
+───────────────────────────────
+useEffect(() => {
+  // Al montar el componente:
+
+  // 1. Cargar pacientes iniciales vía HTTP
+  fetchPatients(100)
+    .then(data => setPatients(data.patients))
+    .catch(err => setError(err))
+    .finally(() => setLoading(false))
+
+  // 2. Conectar WebSocket
+  connectWebSocket((data) => {
+    if data.event_type == "INITIAL_SNAPSHOT":
+      // Primera conexión, cargar estado completo
+      setPatients(data.patients)
+      setMetrics(data.global_state)
+      setEvents(data.events)
+    else:
+      // Evento posterior
+      setEvents(prev => [data, ...prev])
+      if data.payload.patient:
+        setPatients(prev => [data.payload.patient, ...prev])
+      if data.global_state:
+        setMetrics(data.global_state)
+
+}, []) // Se ejecuta una sola vez al montar
+
+
+================================================================================
+12. INSTRUCCIONES DE EJECUCIÓN
+================================================================================
+
+REQUISITOS PREVIOS:
+  • Python 3.11+
+  • Node.js 16+
+  • npm o yarn
+  • Los archivos CSV en backend/data/
+
+PASO 1: INSTALAR DEPENDENCIAS PYTHON
+─────────────────────────────────────
+cd "C:\Users\Juan Camilo\OneDrive\Escritorio\hospital-SMA"
+python -m pip install --trusted-host pypi.org --trusted-host files.pythonhosted.org fastapi uvicorn pandas
+
+
+PASO 2: INSTALAR DEPENDENCIAS FRONTEND
+────────────────────────────────────────
+cd "C:\Users\Juan Camilo\OneDrive\Escritorio\hospital-SMA\frontend"
+npm install
+
+
+PASO 3: INICIAR BACKEND
+────────────────────────
+cd "C:\Users\Juan Camilo\OneDrive\Escritorio\hospital-SMA"
+python -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+
+Salida esperada:
+  [AGENT INITIALIZED] TriageAgent
+  [AGENT INITIALIZED] ResourceAgent
+  ...
+  [EVENT BUS] Subscriber added -> PATIENT_ARRIVED
+  ...
+  Uvicorn running on http://0.0.0.0:8000
+
+
+PASO 4: INICIAR FRONTEND (en otra terminal)
+──────────────────────────────────────────
+cd "C:\Users\Juan Camilo\OneDrive\Escritorio\hospital-SMA\frontend"
+npm run dev -- --host localhost --port 5174
+
+Salida esperada:
+  ➜  Local:   http://localhost:5174/
+  ➜  press h to show help
+
+
+PASO 5: ABRIR EN NAVEGADOR
+──────────────────────────
+http://localhost:5174/
+
+Deberías ver:
+  • Tabla de pacientes (cargados desde CSV)
+  • Panel de métricas
+  • Formulario para añadir pacientes
+  • Timeline vacío (se llenará al registrar pacientes)
+
+
+PASO 6: PRUEBA FUNCIONAL
+────────────────────────
+1. En el formulario, ingresa:
+   • Edad: 72
+   • Género: Masculino
+   • Nivel urgencia: 1 (Crítico)
+   • Síntomas: Paro cardíaco
+   • Presión: 70/40
+   • Temperatura: 35
+   • FC: 140
+   • SpO2: 80
+
+2. Haz clic en "Ingresar Paciente"
+
+3. Observa:
+   • Tabla: Aparece nuevo paciente arriba
+   • Timeline: Se llena con eventos
+   • Métricas: Se actualizan recursos
+   • Consola backend: Logs de agentes
+
+
+================================================================================
+13. TROUBLESHOOTING
+================================================================================
+
+ERROR: "ModuleNotFoundError: No module named 'fastapi'"
+─────────────────────────────────────────────────────
+Solución:
+  python -m pip install fastapi uvicorn pandas
+
+ERROR: "OSError: Could not find TLS CA certificate"
+────────────────────────────────────────────────────
+Solución (temporal):
+  python -m pip install --trusted-host pypi.org --trusted-host files.pythonhosted.org fastapi
+
+ERROR: WebSocket no conecta
+──────────────────────────
+Verificar:
+  1. Backend está corriendo en puerto 8000
+  2. Frontend está en puerto 5174
+  3. No hay firewall bloqueando
+  4. Revisar consola del navegador (F12)
+
+ERROR: Pacientes no se cargan desde CSV
+────────────────────────────────────────
+Verificar:
+  1. Archivos CSV existen en backend/data/
+  2. Permisos de lectura en archivos
+  3. Formato de CSV es correcto (encoding UTF-8)
+  4. Revisar logs del servidor
+
+
+================================================================================
+14. EJEMPLO DE SALIDA DEL SISTEMA
+================================================================================
+
+Backend logs al recibir nuevo paciente:
+
+[AGENT INITIALIZED] TriageAgent
+[EVENT BUS] Subscriber added -> PATIENT_ARRIVED
+
+[EVENT PUBLISHED] PATIENT_ARRIVED
+[TRIAGE] Patient P12A4B9F classified as CRITICAL
+[EVENT PUBLISHED] PATIENT_TRIAGED
+[RESOURCE] Bed allocated to P12A4B9F -> ICU
+[STATE] ICU bed allocated
+[EVENT PUBLISHED] RESOURCE_ALLOCATED
+[STAFF] Dra. Laura Gómez Vásquez assigned to P12A4B9F
+[EVENT PUBLISHED] STAFF_ASSIGNED
+[FORECAST] ICU saturation risk -> 36%
+[EVENT PUBLISHED] SATURATION_WARNING
+
+
+Frontend: Dashboard actualizado
+─────────────────────────────
+┌─ Métricas
+│  Pacientes activos: 87
+│  Pacientes en espera: 3
+│  Camas UCI libres: 1
+│  Personal disponible: 17
+│  Ocupación UCI: 36%
+│  Alertas activas: 1
+
+├─ Tabla
+│  ID           Urgencia  Estado         Departamento  Médico                     Espera
+│  P12A4B9F     1         En_atencion    UCI           Dra. Laura Gómez Vásquez   1 min
+
+└─ Timeline
+   PATIENT_TRIAGED: "Nivel 1: paciente con signos críticos..."
+   RESOURCE_ALLOCATED: "Asignado a UCI por prioridad CRITICAL..."
+   STAFF_ASSIGNED: "Se asignó Dra. Laura Gómez Vásquez..."
+
+
+================================================================================
+15. RESUMEN ARQUITECTÓNICO
+================================================================================
+
+┌─────────────────────────────────────────────────────────────┐
+│  Hospital-SMA: Sistema Multiagente Integrado                │
+└─────────────────────────────────────────────────────────────┘
+
+PRINCIPIOS:
+  ✓ Agentes autónomos sin acoplamiento directo
+  ✓ Comunicación por eventos desacoplada
+  ✓ Estado centralizado único
+  ✓ Decisiones trazables y explicables
+  ✓ Carga inicial desde archivos CSV
+  ✓ Actualización en tiempo real vía WebSocket
+  ✓ Persistencia de nuevos pacientes en JSON
+
+FLUJOS PRINCIPALES:
+  1. Carga inicial: CSV → state_manager → frontend
+  2. Nuevo paciente: Formulario → WebSocket → Event Bus → Agentes → Estado global → Frontend
+  3. Trazabilidad: Cada decisión registrada en decision_trace
+  4. Visualización: React actualiza automáticamente con cada evento
+
+BENEFICIOS:
+  • Escalabilidad: Fácil añadir nuevos agentes
+  • Mantenibilidad: Lógica desacoplada por agente
+  • Transparencia: Cada decisión es explicable
+  • Tiempo real: WebSocket actualiza instantáneamente
+  • Auditoría: Historial completo de decisiones
+
+================================================================================
+
+FIN DE DOCUMENTACIÓN TÉCNICA
+
+Generado: Mayo 2026
+Versión: 1.0
+Autor: Arquitectura Hospital-SMA

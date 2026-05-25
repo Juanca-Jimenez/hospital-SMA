@@ -1,0 +1,83 @@
+id_paciente,edad,genero,nivel_urgencia,sintomas,departamento,estado
+1,21,F,4,Dificultad respiratoria,Emergencias,Alta
+2,45,M,1,Envenenamiento,Emergencias,Alta
+3,53,M,3,Dificultad respiratoria,Emergencias,Transferido
+4,30,F,2,Accidente cerebrovascular,Emergencias,En_atencion
+5,55,F,2,Envenenamiento,Emergencias,Transferido
+6,30,F,5,Accidente cerebrovascular,Emergencias,Transferido
+7,39,M,2,Dificultad respiratoria,Emergencias,En_espera
+8,25,M,4,Dolor torácico,Emergencias,En_espera
+9,76,M,3,Accidente cerebrovascular,Emergencias,Alta
+10,46,M,3,Envenenamiento,Emergencias,En_espera
+11,67,F,4,Envenenamiento,Emergencias,En_atencion
+12,61,M,4,Accidente cerebrovascular,Emergencias,En_espera
+13,56,M,5,Dificultad respiratoria,Emergencias,Transferido
+14,64,F,1,Dificultad respiratoria,Emergencias,Alta
+15,34,M,5,Trauma severo,Emergencias,En_espera
+16,43,F,4,Trauma severo,Emergencias,En_atencion
+17,61,M,3,Envenenamiento,Emergencias,En_atencion
+18,22,F,2,Dolor torácico,Emergencias,En_espera
+19,78,F,3,Dificultad respiratoria,Emergencias,Alta
+20,24,M,5,Dolor torácico,Emergencias,En_espera
+21,35,F,2,Sepsis severa,UCI,En_atencion
+22,19,M,2,Sepsis severa,UCI,En_atencion
+23,67,F,2,Insuficiencia respiratoria,UCI,Alta
+24,45,M,1,Shock cardiogénico,UCI,Alta
+25,85,M,4,Falla multiorgánica,UCI,En_espera
+26,49,M,1,Shock cardiogénico,UCI,Transferido
+27,58,M,1,Trauma craneoencefálico,UCI,Transferido
+28,30,M,1,Shock cardiogénico,UCI,En_espera
+29,74,F,1,Shock cardiogénico,UCI,En_atencion
+30,31,M,1,Trauma craneoencefálico,UCI,Transferido
+31,24,M,4,Alergia,Consulta_Externa,Transferido
+32,72,M,5,Dolor muscular,Consulta_Externa,En_espera
+33,57,F,4,Dolor muscular,Consulta_Externa,Transferido
+34,70,M,5,Gastroenteritis,Consulta_Externa,Transferido
+35,49,F,5,Gastroenteritis,Consulta_Externa,En_espera
+36,76,F,5,Infección respiratoria,Consulta_Externa,Transferido
+37,53,F,5,Dolor lumbar,Consulta_Externa,En_espera
+38,73,F,4,Infección respiratoria,Consulta_Externa,Transferido
+39,18,M,5,Infección respiratoria,Consulta_Externa,Transferido
+40,56,F,5,Alergia,Consulta_Externa,En_espera
+41,66,M,5,Dolor lumbar,Consulta_Externa,Transferido
+42,59,F,4,Alergia,Consulta_Externa,En_atencion
+43,60,M,5,Gastroenteritis,Consulta_Externa,En_atencion
+44,27,F,5,Alergia,Consulta_Externa,Alta
+45,18,M,4,Alergia,Consulta_Externa,En_atencion
+46,33,F,4,Gastroenteritis,Consulta_Externa,Alta
+47,38,F,4,Alergia,Consulta_Externa,En_espera
+48,54,M,4,Infección respiratoria,Consulta_Externa,En_espera
+49,37,M,3,Neumonía,Hospitalizacion,En_atencion
+50,67,M,4,Insuficiencia cardíaca,Hospitalizacion,Alta
+51,46,F,3,Infección urinaria,Hospitalizacion,Alta
+52,34,M,4,Hipertensión no controlada,Hospitalizacion,Alta
+53,66,F,2,Infección urinaria,Hospitalizacion,Alta
+54,78,M,4,Insuficiencia cardíaca,Hospitalizacion,En_atencion
+55,20,M,2,Infección urinaria,Hospitalizacion,Alta
+56,39,M,4,Infección urinaria,Hospitalizacion,Alta
+57,43,M,4,Insuficiencia cardíaca,Hospitalizacion,En_atencion
+58,62,F,4,Diabetes descompensada,Hospitalizacion,En_atencion
+59,76,M,4,Hipertensión no controlada,Hospitalizacion,Alta
+60,52,F,4,Infección urinaria,Hospitalizacion,Alta
+61,59,M,2,Hipertensión no controlada,Hospitalizacion,Transferido
+62,42,M,2,Infección urinaria,Hospitalizacion,Alta
+63,75,M,4,Neumonía,Hospitalizacion,Transferido
+64,62,F,3,Insuficiencia cardíaca,Hospitalizacion,Transferido
+65,42,F,2,Neumonía,Hospitalizacion,Transferido
+66,85,F,4,Neumonía,Hospitalizacion,En_atencion
+67,23,M,2,Insuficiencia cardíaca,Hospitalizacion,En_atencion
+68,78,F,3,Hipertensión no controlada,Hospitalizacion,En_atencion
+69,27,M,3,Infección urinaria,Hospitalizacion,Alta
+70,46,F,3,Hipertensión no controlada,Hospitalizacion,En_atencion
+71,30,M,4,Apendicitis aguda,Cirugia,En_espera
+72,78,F,3,Fractura femoral,Cirugia,En_atencion
+73,43,F,4,Fractura femoral,Cirugia,En_espera
+74,57,F,2,Hernia inguinal,Cirugia,Transferido
+75,74,M,3,Tumor abdominal,Cirugia,En_atencion
+76,20,F,3,Tumor abdominal,Cirugia,Transferido
+77,73,F,4,Fractura femoral,Cirugia,En_espera
+78,81,F,3,Hernia inguinal,Cirugia,Transferido
+79,69,M,4,Tumor abdominal,Cirugia,Alta
+80,24,M,3,Colecistitis,Cirugia,En_atencion
+81,48,M,4,Colecistitis,Cirugia,En_atencion
+82,37,F,4,Colecistitis,Cirugia,En_espera

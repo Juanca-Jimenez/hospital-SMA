@@ -269,19 +269,21 @@ function Dashboard() {
           <HospitalMetrics metrics={metrics} patientsCount={patients.length} />
         </div>
 
-        {/* Grid principal */}
+        {/* Formulario de admisión - Horizontal */}
+        <div className="admission-form-section">
+          <PatientForm onResult={handleNewPatientSent} />
+        </div>
+
+        {/* Grid principal: Timeline | Agentes + Flujo */}
         <div className="dashboard-grid">
           {/* Columna izquierda: timeline global de agentes */}
           <div className="dashboard-main-panel">
             <EventTimeline events={events} />
           </div>
 
-          {/* Columna derecha: formulario + flujo activo */}
+          {/* Columna derecha: estado de agentes + flujo activo */}
           <div className="dashboard-side-panel">
             <AgentStatus events={events} />
-
-            {/* Formulario de admisión */}
-            <PatientForm onResult={handleNewPatientSent} />
 
             {/* Panel de flujo multiagente del paciente activo */}
             {(isProcessing || activePatientId) && (

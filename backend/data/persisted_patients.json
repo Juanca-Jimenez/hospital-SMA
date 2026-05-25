@@ -275,5 +275,87 @@
     "bed_type": null,
     "cama": null,
     "prioridad": null
+  },
+  {
+    "edad": 100,
+    "genero": "Masculino",
+    "motivo_consulta": "Neurológico",
+    "sintomas": [
+      "Dolor torácico",
+      "Fiebre"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 117,
+        "diastolica": 70
+      },
+      "temperatura": 38,
+      "frecuencia": 70,
+      "spo2": 70
+    },
+    "dolor": 2,
+    "id_paciente": "P7A504",
+    "timestamp": "2026-05-25T13:41:07.622898",
+    "estado": "En_evaluacion",
+    "nivel_urgencia": 3,
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null,
+    "cama": null,
+    "prioridad": null
+  },
+  {
+    "edad": 70,
+    "genero": "Masculino",
+    "motivo_consulta": "Digestivo",
+    "sintomas": [
+      "Náuseas"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 87,
+        "diastolica": 47
+      },
+      "temperatura": 34,
+      "frecuencia": 30,
+      "spo2": 64
+    },
+    "dolor": 8,
+    "id_paciente": "PB5FF4",
+    "timestamp": "2026-05-25T13:42:06.296661",
+    "estado": "En_evaluacion",
+    "nivel_urgencia": 3,
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null,
+    "cama": null,
+    "prioridad": null
+  },
+  {
+    "edad": 27,
+    "genero": "Masculino",
+    "motivo_consulta": "Respiratorio",
+    "sintomas": [
+      "Dolor torácico"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 87,
+        "diastolica": 58
+      },
+      "temperatura": 37,
+      "frecuencia": 110,
+      "spo2": 90
+    },
+    "dolor": 7,
+    "id_paciente": "P913A2",
+    "timestamp": "2026-05-25T13:48:27.432729",
+    "estado": "En_evaluacion",
+    "nivel_urgencia": 3,
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null,
+    "cama": null,
+    "prioridad": null
   }
 ]

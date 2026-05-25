@@ -1,4 +1,5 @@
-﻿import json
+import json
+import random
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -9,11 +10,12 @@ import pandas as pd
 class HospitalStateManager:
     """
     Single Source of Truth del hospital.
-    Mantiene el estado global operativo y deriva métricas.
+    Soporta el nuevo payload clínico (vitales estructurados, sintomas[],
+    motivo_consulta, dolor) y el payload legado.
     """
 
     def __init__(self, data_dir: Optional[Path] = None):
-        self.data_dir = Path(data_dir or Path(__file__).resolve().parent / 'data')
+        self.data_dir = Path(data_dir or Path(__file__).resolve().parent / "data")
 
         self.patients: List[Dict[str, Any]] = []
         self.active_patients: List[Dict[str, Any]] = []
@@ -29,6 +31,8 @@ class HospitalStateManager:
 
         self.load_initial_state()
 
+    # ─── Carga inicial ─────────────────────────────────────────────────────
+
     def load_initial_state(self):
         self.load_historic_metrics()
         self.load_resources()
@@ -36,32 +40,10 @@ class HospitalStateManager:
         self.load_patients()
         self.refresh_derived_state()
 
-    def _parse_vitals(self, raw_value: Any) -> Dict[str, Any]:
-        if isinstance(raw_value, str):
-            try:
-                return json.loads(raw_value.replace("'", '"'))
-            except Exception:
-                return {"raw": raw_value}
-        return raw_value or {}
-
-    def _normalize_patient(self, patient: Dict[str, Any]) -> Dict[str, Any]:
-        patient = {k: v for k, v in patient.items()}
-        patient["id_paciente"] = str(patient.get("id_paciente", "")).strip()
-        patient["nivel_urgencia"] = int(patient.get("nivel_urgencia") or 5)
-        patient["edad"] = int(patient.get("edad") or 0)
-        patient["genero"] = str(patient.get("genero") or "No definido")
-        patient["sintomas"] = str(patient.get("sintomas") or "No informado")
-        patient["departamento"] = str(patient.get("departamento") or "Pendiente")
-        patient["estado"] = str(patient.get("estado") or "En_espera")
-        patient["medico_asignado"] = patient.get("medico_asignado") or None
-        patient["bed_type"] = patient.get("bed_type") or None
-        return patient
-
     def load_patients(self):
         path = self.data_dir / "pacientes.csv"
         if not path.exists():
             return
-
         df = pd.read_csv(path)
         for row in df.to_dict(orient="records"):
             patient = self._normalize_patient(row)
@@ -72,28 +54,20 @@ class HospitalStateManager:
         self.resources = {}
         if not path.exists():
             return
-
         df = pd.read_csv(path)
-        # Estructura simplificada: departamento, total, ocupados
         for row in df.to_dict(orient="records"):
-            departamento = str(row.get("departamento", "")).strip()
+            dept = str(row.get("departamento", "")).strip()
             total = int(row.get("total") or 0)
             ocupados = int(row.get("ocupados") or 0)
             disponibles = total - ocupados
-            
-            # Mapear departamento a tipo de recurso
-            resource_type = self._map_department_to_resource(departamento)
-            
-            self.resources[resource_type] = {
+            rtype = self._map_department_to_resource(dept)
+            self.resources[rtype] = {
                 "total": total,
                 "occupied": ocupados,
                 "available": disponibles,
-                "detail": [{
-                    "departamento": departamento,
-                    "total": total,
-                    "available": disponibles,
-                    "occupied": ocupados,
-                }]
+                "departamento": dept,
+                "detail": [{"departamento": dept, "total": total,
+                             "available": disponibles, "occupied": ocupados}],
             }
 
     def load_staff(self):
@@ -101,56 +75,90 @@ class HospitalStateManager:
         self.staff = []
         if not path.exists():
             return
-
         df = pd.read_csv(path)
         for row in df.to_dict(orient="records"):
-            self.staff.append(
-                {
-                    "id_empleado": str(row.get("id_empleado", "")).strip(),
-                    "rol": str(row.get("rol") or "General"),
-                    "especialidad": str(row.get("especialidad") or "General"),
-                    "departamento_1": str(row.get("departamento_1") or "Hospitalizacion"),
-                    "departamento_2": str(row.get("departamento_2") or "Emergencias"),
-                    "estado": str(row.get("estado") or "Disponible"),
-                }
-            )
+            self.staff.append({
+                "id_empleado": str(row.get("id_empleado", "")).strip(),
+                "nombre": str(row.get("nombre") or row.get("id_empleado") or "Personal"),
+                "rol": str(row.get("rol") or "General"),
+                "especialidad": str(row.get("especialidad") or "General"),
+                "departamento_1": str(row.get("departamento_1") or "Hospitalizacion"),
+                "departamento_2": str(row.get("departamento_2") or "Emergencias"),
+                "estado": str(row.get("estado") or "Disponible"),
+                "pacientes_atendidos_turno": int(row.get("pacientes_atendidos_turno") or 0),
+            })
 
     def load_historic_metrics(self):
         path = self.data_dir / "metricas.csv"
         self.historic_metrics = []
         if not path.exists():
             return
-
         df = pd.read_csv(path)
         self.historic_metrics = df.to_dict(orient="records")
 
-    def _map_department_to_resource(self, departamento: str) -> str:
-        """Mapea nombre de departamento a tipo de recurso"""
-        mapping = {
-            "Emergencias": "EMERGENCY",
-            "UCI": "ICU",
-            "Hospitalizacion": "GENERAL",
-            "Pediatria": "PEDIATRICS",
-            "Cirugia": "SURGERY",
-            "Consulta_Externa": "GENERAL",
-            "Cardiologia": "GENERAL",
-            "Radiologia": "GENERAL",
-        }
-        return mapping.get(departamento, "GENERAL")
+    # ─── Normalización de paciente ─────────────────────────────────────────
+
+    def _normalize_patient(self, patient: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Convierte ambos formatos (nuevo clínico y legado CSV) a estructura interna.
+        """
+        p = dict(patient)
+
+        p["id_paciente"] = str(p.get("id_paciente", "")).strip()
+        p["edad"] = int(p.get("edad") or 0)
+        p["genero"] = str(p.get("genero") or "No definido")
+        p["estado"] = str(p.get("estado") or "En_espera")
+
+        # ── Nuevo payload clínico ─────────────────────────────────────
+        if "motivo_consulta" in p or "vitales" in p:
+            # Síntomas como lista
+            sintomas = p.get("sintomas", [])
+            if isinstance(sintomas, list):
+                p["sintomas"] = sintomas
+            else:
+                p["sintomas"] = [s.strip() for s in str(sintomas).split(",") if s.strip()]
+
+            p["motivo_consulta"] = str(p.get("motivo_consulta") or "")
+            p["dolor"] = int(p.get("dolor") or 0)
+
+            # Vitales estructurados
+            vitales = p.get("vitales") or {}
+            if isinstance(vitales, str):
+                try:
+                    vitales = json.loads(vitales)
+                except Exception:
+                    vitales = {}
+            p["vitales"] = vitales
+
+            # Legado: nivel_urgencia calculado del dolor para compat.
+            p.setdefault("nivel_urgencia", 3)
+
+        else:
+            # ── Formato legado CSV ────────────────────────────────────
+            p["nivel_urgencia"] = int(p.get("nivel_urgencia") or 5)
+            sintomas = p.get("sintomas", "")
+            p["sintomas"] = str(sintomas) if sintomas else "No informado"
+
+        p["departamento"] = str(p.get("departamento") or "Pendiente")
+        p["medico_asignado"] = p.get("medico_asignado") or None
+        p["bed_type"] = p.get("bed_type") or None
+        p["cama"] = p.get("cama") or None
+        p["prioridad"] = p.get("prioridad") or None
+
+        return p
+
+    # ─── Estado derivado ───────────────────────────────────────────────────
 
     def refresh_derived_state(self):
         self.discharged_patients = [
-            patient
-            for patient in self.patients
-            if patient["estado"] in {"Alta", "Transferido"}
+            p for p in self.patients if p["estado"] in {"Alta", "Transferido"}
         ]
         self.active_patients = [
-            patient
-            for patient in self.patients
-            if patient["estado"] not in {"Alta", "Transferido"}
+            p for p in self.patients if p["estado"] not in {"Alta", "Transferido"}
         ]
         self.waiting_patients = [
-            patient for patient in self.active_patients if patient["estado"] == "En_espera"
+            p for p in self.active_patients
+            if p["estado"] in {"En_espera", "En_evaluacion", "En_triaje"}
         ]
 
     def get_all_patients(self, limit: int = 100) -> List[Dict[str, Any]]:
@@ -166,33 +174,176 @@ class HospitalStateManager:
             "total_discharges": len(self.discharged_patients),
             "available_staff": len([s for s in self.staff if s["estado"] == "Disponible"]),
             "total_staff": len(self.staff),
-            "alerts": self.alerts,
+            "alerts": self.alerts[-20:],
             "event_timeline": self.event_timeline[:50],
             "decision_trace": self.decision_trace[-50:],
         }
 
+    # ─── Pacientes ─────────────────────────────────────────────────────────
+
+    def add_patient(self, patient: Dict[str, Any]) -> None:
+        patient = self._normalize_patient(patient)
+        if not patient["id_paciente"]:
+            patient["id_paciente"] = f"P{datetime.now().strftime('%H%M%S')}"
+        if not patient.get("timestamp"):
+            patient["timestamp"] = datetime.now().isoformat()
+        if not patient.get("estado"):
+            patient["estado"] = "En_evaluacion"
+
+        self.patients.insert(0, patient)
+        self.refresh_derived_state()
+        self.persist_patient(patient)
+        self.add_event("PATIENT_ADDED", {"patient": patient})
+        print(f"[STATE] Patient added → {patient['id_paciente']}")
+
+    def update_patient_field(self, patient_id: str, field: str, value: Any) -> None:
+        """Actualiza un campo de un paciente en la lista en memoria."""
+        for p in self.patients:
+            if p.get("id_paciente") == patient_id:
+                p[field] = value
+        self.refresh_derived_state()
+
+    def get_patient(self, patient_id: str) -> Optional[Dict[str, Any]]:
+        for p in self.patients:
+            if p.get("id_paciente") == patient_id:
+                return p
+        return None
+
+    # ─── Recursos ──────────────────────────────────────────────────────────
+
     def get_occupancy_percentage(self, resource_type: str) -> float:
-        resource = self.resources.get(resource_type, {"total": 0, "available": 0})
-        if resource["total"] == 0:
+        r = self.resources.get(resource_type, {"total": 0, "available": 0})
+        if r["total"] == 0:
             return 0.0
-        occupied = resource["total"] - resource["available"]
-        return round((occupied / resource["total"]) * 100, 2)
+        occupied = r["total"] - r["available"]
+        return round((occupied / r["total"]) * 100, 2)
+
+    def allocate_resource(self, priority: str, patient: Dict[str, Any]) -> Optional[str]:
+        if priority == "NORMAL":
+            prefs = ["GENERAL", "PEDIATRICS", "EMERGENCY"]
+        elif priority == "MEDIUM":
+            prefs = ["GENERAL", "EMERGENCY", "ICU"]
+        elif priority == "HIGH":
+            prefs = ["EMERGENCY", "ICU", "GENERAL"]
+        else:  # CRITICAL
+            prefs = ["ICU", "EMERGENCY", "GENERAL"]
+
+        for rtype in prefs:
+            r = self.resources.get(rtype)
+            if r and r.get("available", 0) > 0:
+                r["available"] -= 1
+                r["occupied"] += 1
+                dept = self._map_resource_to_department(rtype)
+                patient["bed_type"] = rtype
+                patient["departamento_asignado"] = dept
+                patient["estado"] = "Cama_asignada"
+                # Generar ID de cama
+                prefix = dept[:3].upper().replace("Á", "A").replace("É", "E")
+                bed_id = f"{prefix}-{random.randint(1, 30):02d}"
+                patient["bed_id"] = bed_id
+                patient["cama"] = bed_id
+                self.refresh_derived_state()
+                self.add_event("RESOURCE_ALLOCATED", {
+                    "patient": patient,
+                    "resource_type": rtype,
+                    "available": r["available"],
+                })
+                return rtype
+
+        self.add_alert(
+            f"No hay recursos para {patient['id_paciente']} con prioridad {priority}."
+        )
+        return None
+
+    # ─── Personal ──────────────────────────────────────────────────────────
+
+    def get_available_staff(self, specialty: Optional[str] = None) -> List[Dict[str, Any]]:
+        candidates = [s for s in self.staff if s["estado"] == "Disponible"]
+        if specialty:
+            sl = specialty.lower()
+            filtered = [
+                s for s in candidates
+                if sl in str(s["especialidad"]).lower() or sl in str(s["rol"]).lower()
+            ]
+            if filtered:
+                return filtered
+        return candidates
+
+    def assign_staff(self, patient: Dict[str, Any], specialty: str) -> Optional[Dict[str, Any]]:
+        candidates = self.get_available_staff(specialty)
+        if not candidates:
+            candidates = self.get_available_staff()
+        if not candidates:
+            self.add_alert(f"No hay personal disponible para {patient['id_paciente']}.")
+            return None
+
+        # Preferir médicos/doctores
+        doctors = [s for s in candidates if "medic" in s["rol"].lower() or "doctor" in s["rol"].lower()]
+        member = doctors[0] if doctors else candidates[0]
+        member["estado"] = "Ocupado"
+        member["pacientes_atendidos_turno"] = member.get("pacientes_atendidos_turno", 0) + 1
+        patient["medico_asignado"] = member["id_empleado"]
+        self.refresh_derived_state()
+        self.add_event("STAFF_ASSIGNED", {"patient": patient, "staff": member})
+        return member
+
+    def assign_nurse(self, patient: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Asigna un enfermero disponible al paciente."""
+        nurses = [
+            s for s in self.staff
+            if s["estado"] == "Disponible"
+            and ("enferm" in s["rol"].lower() or "nurse" in s["rol"].lower())
+        ]
+        if not nurses:
+            # Si no hay enfermeros específicos, tomar cualquier disponible
+            nurses = [s for s in self.staff if s["estado"] == "Disponible"]
+        if not nurses:
+            return None
+        nurse = nurses[0]
+        nurse["estado"] = "Ocupado"
+        nurse["pacientes_atendidos_turno"] = nurse.get("pacientes_atendidos_turno", 0) + 1
+        patient["enfermero_asignado"] = nurse["id_empleado"]
+        return nurse
+
+    def select_staff_specialty(self, patient: Dict[str, Any], priority: str) -> str:
+        motivo = str(patient.get("motivo_consulta", "")).lower()
+        sintomas = patient.get("sintomas", [])
+        if isinstance(sintomas, list):
+            sint_text = " ".join(sintomas).lower()
+        else:
+            sint_text = str(sintomas).lower()
+        dept = str(patient.get("departamento_asignado", "")).lower()
+
+        if "cardio" in sint_text or "torácico" in sint_text or "cardiologia" in dept:
+            return "Cardiologia"
+        if "traumat" in sint_text or "fractura" in sint_text:
+            return "Traumatologia"
+        if "neurológico" in motivo or "conciencia" in sint_text:
+            return "Neurologia"
+        if "pediatr" in dept:
+            return "Pediatria"
+        if priority == "CRITICAL":
+            return "Medicina Intensiva"
+        if priority == "HIGH":
+            return "Medicina General"
+        return "Medicina General"
+
+    # ─── Alertas y eventos ─────────────────────────────────────────────────
 
     def add_alert(self, alert_message: str):
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        entry = f"{now} - {alert_message}"
-        self.alerts.append(entry)
+        self.alerts.append(f"{now} - {alert_message}")
         self.add_event("ALERT_RAISED", {"message": alert_message})
-        print(f"[ALERT] {entry}")
+        print(f"[ALERT] {alert_message}")
 
     def add_event(self, event_type: str, payload: Dict[str, Any]) -> None:
         event = {
             "event_type": event_type,
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "timestamp": datetime.now().isoformat(),
             "payload": payload,
         }
         self.event_timeline.insert(0, event)
-        if len(self.event_timeline) > 200:
+        if len(self.event_timeline) > 500:
             self.event_timeline.pop()
 
     def record_decision(
@@ -204,17 +355,16 @@ class HospitalStateManager:
         reason: str,
         source_data: Dict[str, Any],
     ) -> None:
-        trace = {
+        self.decision_trace.append({
             "patient_id": patient_id,
             "event": event,
             "agent": agent,
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "timestamp": datetime.now().isoformat(),
             "decision": decision,
             "reason": reason,
             "source_data": source_data,
-        }
-        self.decision_trace.append(trace)
-        if len(self.decision_trace) > 200:
+        })
+        if len(self.decision_trace) > 500:
             self.decision_trace.pop(0)
 
     def persist_patient(self, patient: Dict[str, Any]) -> None:
@@ -226,121 +376,115 @@ class HospitalStateManager:
             except Exception:
                 existing = []
         existing.append(patient)
-        path.write_text(json.dumps(existing, ensure_ascii=False, indent=2), encoding="utf-8")
+        path.write_text(json.dumps(existing, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
 
-    def add_patient(self, patient: Dict[str, Any]) -> None:
-        patient = self._normalize_patient(patient)
-        if not patient["id_paciente"]:
-            patient["id_paciente"] = f"P{datetime.now().strftime('%Y%m%d%H%M%S')[-8:]}"
-        if not patient.get("timestamp"):
-            patient["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        if not patient.get("estado"):
-            patient["estado"] = "En_espera"
+    # ─── Acciones de simulación ────────────────────────────────────────────
 
-        self.patients.insert(0, patient)
+    def simulate_hour(self, patient_id: str) -> Dict[str, Any]:
+        """Simula el paso de 1 hora: actualiza estado del paciente."""
+        patient = self.get_patient(patient_id)
+        if not patient:
+            return {"error": "Paciente no encontrado"}
+
+        old_estado = patient.get("estado", "")
+        transitions = {
+            "Personal_asignado": "En_atencion",
+            "En_atencion": "En_observacion",
+            "En_observacion": "Mejorando",
+            "Mejorando": "Alta_pendiente",
+        }
+        new_estado = transitions.get(old_estado, old_estado)
+        self.update_patient_field(patient_id, "estado", new_estado)
+        self.add_event("SIMULATION_TICK", {
+            "patient_id": patient_id,
+            "old_estado": old_estado,
+            "new_estado": new_estado,
+        })
+        return {"patient_id": patient_id, "old_estado": old_estado, "new_estado": new_estado}
+
+    def escalate_patient(self, patient_id: str) -> Dict[str, Any]:
+        """Escala la prioridad del paciente al siguiente nivel."""
+        patient = self.get_patient(patient_id)
+        if not patient:
+            return {"error": "Paciente no encontrado"}
+
+        escalation = {"NORMAL": "MEDIUM", "MEDIUM": "HIGH", "HIGH": "CRITICAL", "CRITICAL": "CRITICAL"}
+        old_priority = patient.get("prioridad", "NORMAL")
+        new_priority = escalation.get(old_priority, "HIGH")
+        self.update_patient_field(patient_id, "prioridad", new_priority)
+        self.add_event("PATIENT_ESCALATED", {
+            "patient_id": patient_id,
+            "old_priority": old_priority,
+            "new_priority": new_priority,
+        })
+        return {"patient_id": patient_id, "old_priority": old_priority, "new_priority": new_priority}
+
+    def transfer_patient(self, patient_id: str, destination: str) -> Dict[str, Any]:
+        """Transfiere al paciente a otro departamento."""
+        patient = self.get_patient(patient_id)
+        if not patient:
+            return {"error": "Paciente no encontrado"}
+
+        self.update_patient_field(patient_id, "departamento_asignado", destination)
+        self.update_patient_field(patient_id, "estado", "Transferido_interno")
+        self.add_event("PATIENT_TRANSFERRED", {
+            "patient_id": patient_id,
+            "destination": destination,
+        })
+        return {"patient_id": patient_id, "destination": destination}
+
+    def discharge_patient(self, patient_id: str) -> Dict[str, Any]:
+        """Da de alta al paciente y libera sus recursos."""
+        patient = self.get_patient(patient_id)
+        if not patient:
+            return {"error": "Paciente no encontrado"}
+
+        # Liberar cama
+        bed_type = patient.get("bed_type")
+        if bed_type and bed_type in self.resources:
+            r = self.resources[bed_type]
+            r["available"] = min(r["available"] + 1, r["total"])
+            r["occupied"] = max(r["occupied"] - 1, 0)
+
+        # Liberar personal
+        medico_id = patient.get("medico_asignado")
+        enfermero_id = patient.get("enfermero_asignado")
+        for s in self.staff:
+            if s["id_empleado"] in (medico_id, enfermero_id):
+                s["estado"] = "Disponible"
+
+        self.update_patient_field(patient_id, "estado", "Alta")
         self.refresh_derived_state()
-        self.persist_patient(patient)
-        self.add_event("PATIENT_ADDED", {"patient": patient})
-        print(f"[STATE] Patient added -> {patient['id_paciente']}")
+        self.add_event("PATIENT_DISCHARGED", {"patient_id": patient_id})
+        return {"patient_id": patient_id, "estado": "Alta"}
 
-    def allocate_resource(self, priority: str, patient: Dict[str, Any]) -> Optional[str]:
-        preferences = ["ICU", "EMERGENCY", "GENERAL", "PEDIATRICS", "SURGERY"]
-        if priority == "NORMAL":
-            preferences = ["GENERAL", "PEDIATRICS", "EMERGENCY"]
-        elif priority == "HIGH":
-            preferences = ["EMERGENCY", "ICU", "GENERAL"]
-        elif priority == "CRITICAL":
-            preferences = ["ICU", "EMERGENCY", "GENERAL"]
+    # ─── Helpers de mapeo ──────────────────────────────────────────────────
 
-        for resource_type in preferences:
-            resource = self.resources.get(resource_type)
-            if resource and resource.get("available", 0) > 0:
-                resource["available"] -= 1
-                resource["occupied"] += 1
-                patient["bed_type"] = resource_type
-                patient["departamento_asignado"] = self._map_resource_to_department(resource_type)
-                patient["estado"] = "En_atencion"
-                self.refresh_derived_state()
-                self.add_event(
-                    "RESOURCE_ALLOCATED",
-                    {
-                        "patient": patient,
-                        "resource_type": resource_type,
-                        "available": resource["available"],
-                    },
-                )
-                return resource_type
+    def _map_department_to_resource(self, dept: str) -> str:
+        mapping = {
+            "Emergencias": "EMERGENCY",
+            "UCI": "ICU",
+            "Hospitalizacion": "GENERAL",
+            "Hospitalización": "GENERAL",
+            "Pediatria": "PEDIATRICS",
+            "Pediatría": "PEDIATRICS",
+            "Cirugia": "SURGERY",
+            "Cirugía": "SURGERY",
+            "Consulta_Externa": "GENERAL",
+            "Cardiologia": "GENERAL",
+            "Radiologia": "GENERAL",
+        }
+        return mapping.get(dept, "GENERAL")
 
-        self.add_alert(
-            f"No hay recursos disponibles para paciente {patient['id_paciente']} con prioridad {priority}."
-        )
-        return None
-
-    def _map_resource_to_department(self, resource_type: str) -> str:
+    def _map_resource_to_department(self, rtype: str) -> str:
         mapping = {
             "ICU": "UCI",
             "GENERAL": "Hospitalización",
             "PEDIATRICS": "Pediatría",
-            "EMERGENCY": "Emergencias",
+            "EMERGENCY": "Urgencias",
             "SURGERY": "Cirugía",
         }
-        return mapping.get(resource_type, resource_type)
-
-    def get_available_staff(self, specialty: Optional[str] = None) -> List[Dict[str, Any]]:
-        candidates = [
-            staff
-            for staff in self.staff
-            if staff["estado"] == "Disponible"
-        ]
-        if specialty:
-            specialty_lower = specialty.lower()
-            filtered = [
-                staff
-                for staff in candidates
-                if specialty_lower in str(staff["especialidad"]).lower()
-                or specialty_lower in str(staff["rol"]).lower()
-            ]
-            if filtered:
-                return filtered
-        return candidates
-
-    def assign_staff(self, patient: Dict[str, Any], specialty: str) -> Optional[Dict[str, Any]]:
-        candidates = self.get_available_staff(specialty)
-        if not candidates:
-            candidates = self.get_available_staff()
-        if not candidates:
-            self.add_alert(f"No hay personal disponible para paciente {patient['id_paciente']}." )
-            return None
-
-        staff_member = candidates[0]
-        staff_member["estado"] = "Ocupado"
-        staff_member["pacientes_atendidos_turno"] += 1
-        patient["medico_asignado"] = staff_member["nombre"]
-        self.refresh_derived_state()
-        self.add_event(
-            "STAFF_ASSIGNED",
-            {
-                "patient": patient,
-                "staff": staff_member,
-            },
-        )
-        return staff_member
-
-    def select_staff_specialty(self, patient: Dict[str, Any], priority: str) -> str:
-        symptom_text = str(patient.get("sintomas", "")).lower()
-        department = str(patient.get("departamento_asignado", "")).lower()
-
-        if "cardio" in symptom_text or "corazón" in symptom_text or "cardiologia" in department:
-            return "Cardiologia"
-        if "traumat" in symptom_text or "fractura" in symptom_text or "traumatologia" in department:
-            return "Traumatologia"
-        if "pediatr" in symptom_text or "niño" in symptom_text or "pediatria" in department:
-            return "Pediatria"
-        if priority == "CRITICAL":
-            return "Medicina Intensiva"
-        if priority == "HIGH":
-            return "Medicina General"
-        return "Medicina General"
+        return mapping.get(rtype, rtype)
 
     def get_state_snapshot(self) -> Dict[str, Any]:
         return {

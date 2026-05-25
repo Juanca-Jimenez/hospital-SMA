@@ -224,5 +224,56 @@
     "departamento": "Pendiente",
     "medico_asignado": null,
     "bed_type": null
+  },
+  {
+    "edad": 80,
+    "genero": "Masculino",
+    "motivo_consulta": "Dolor",
+    "sintomas": "['Dolor torácico', 'Mareo']",
+    "vitales": {
+      "presion": {
+        "sistolica": 110,
+        "diastolica": 45
+      },
+      "temperatura": 38,
+      "frecuencia": 40,
+      "spo2": 78
+    },
+    "dolor": 6,
+    "id_paciente": "P06585F8",
+    "timestamp": "2026-05-25T13:21:06.838796",
+    "estado": "En_espera",
+    "nivel_urgencia": 5,
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null
+  },
+  {
+    "edad": 49,
+    "genero": "Femenino",
+    "motivo_consulta": "Trauma",
+    "sintomas": [
+      "Cansancio",
+      "Fractura"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 94,
+        "diastolica": 47
+      },
+      "temperatura": 38,
+      "frecuencia": 90,
+      "spo2": 70
+    },
+    "dolor": 8,
+    "id_paciente": "P36B4D",
+    "timestamp": "2026-05-25T13:31:53.387291",
+    "estado": "En_evaluacion",
+    "nivel_urgencia": 3,
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null,
+    "cama": null,
+    "prioridad": null
   }
 ]

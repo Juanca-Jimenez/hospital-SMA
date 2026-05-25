@@ -1,48 +1,76 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 
 import Navbar from "./navbar";
 import PatientForm from "./PatientForm";
-import EventTimeline from "./EventTimeLine"; // Asegúrate que el nombre del archivo coincida (EventTimeline.jsx o EventTimeLine.jsx)
+import AdmissionFlow from "./AdmissionFlow";
+import EventTimeline from "./EventTimeLine";
 import HospitalMetrics from "./HospitalMetrics";
 import AgentStatus from "./AgentStatus";
 import PatientsTable from "./PatientsTable";
 
-import { connectWebSocket, fetchPatients, fetchDepartments, fetchResources, fetchStaff, fetchMetrics } from "../services/websocket";
+import {
+  connectWebSocket,
+  fetchPatients,
+  fetchDepartments,
+  fetchResources,
+  fetchStaff,
+  fetchMetrics,
+} from "../services/websocket";
 import "../styles/dashboard.css";
 
+// Eventos que pertenecen al flujo de un paciente específico
+const PATIENT_FLOW_EVENTS = new Set([
+  "PATIENT_ARRIVED",
+  "PATIENT_ADDED",
+  "PATIENT_TRIAGED",
+  "RESOURCE_ALLOCATED",
+  "STAFF_ASSIGNED",
+  "FORECAST_UPDATED",
+  "SIMULATION_TICK",
+  "PATIENT_ESCALATED",
+  "PATIENT_TRANSFERRED",
+  "PATIENT_DISCHARGED",
+  "CRITICAL_ALERT",
+  "WORKFLOW_ALERT",
+]);
+
 function Dashboard() {
-  const [events, setEvents] = useState([]);
-  const [metrics, setMetrics] = useState({});
-  const [patients, setPatients] = useState([]);
-  const [departments, setDepartments] = useState([]);
-  const [resources, setResources] = useState([]);
-  const [staff, setStaff] = useState([]);
-  const [historicalMetrics, setHistoricalMetrics] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  // ── Estado global ────────────────────────────────────────────────────────
+  const [events, setEvents]               = useState([]);
+  const [metrics, setMetrics]             = useState({});
+  const [patients, setPatients]           = useState([]);
+  const [loading, setLoading]             = useState(true);
+  const [error, setError]                 = useState("");
+
+  // ── Estado del flujo de admisión activo ──────────────────────────────────
+  const [activePatientId, setActivePatientId]     = useState(null);
+  const [patientEvents, setPatientEvents]         = useState([]);
+  const [admissionResult, setAdmissionResult]     = useState(null);
+  const [isProcessing, setIsProcessing]           = useState(false);
+
+  // Ref para el id activo (evita closure stale en el WS callback)
+  const activePatientIdRef = useRef(null);
+  const patientEventsRef   = useRef([]);
 
   useEffect(() => {
-    let mounted = true;
-    let wsUnsubscribe = null;
+    activePatientIdRef.current = activePatientId;
+  }, [activePatientId]);
 
-    const loadAllData = async () => {
+  // ── Carga inicial de datos REST ──────────────────────────────────────────
+  useEffect(() => {
+    let mounted = true;
+
+    const loadAll = async () => {
       try {
-        // Cargar todos los datos en paralelo
-        const [patientsData, deptData, resourcesData, staffData, metricsData] = await Promise.all([
+        const [patientsData] = await Promise.all([
           fetchPatients(100),
           fetchDepartments(),
           fetchResources(),
           fetchStaff(),
           fetchMetrics(),
         ]);
-
         if (!mounted) return;
-
         setPatients(patientsData.patients || []);
-        setDepartments(deptData.departments || []);
-        setResources(resourcesData.resources || []);
-        setStaff(staffData.staff || []);
-        setHistoricalMetrics(metricsData.metrics || []);
       } catch (err) {
         console.error(err);
         setError("No se pudieron cargar los datos desde los CSV.");
@@ -51,54 +79,165 @@ function Dashboard() {
       }
     };
 
-    loadAllData();
+    loadAll();
 
-    // Conectar WebSocket
-    wsUnsubscribe = connectWebSocket((data) => {
+    // ── WebSocket ────────────────────────────────────────────────────────
+    const wsUnsubscribe = connectWebSocket((data) => {
       if (!mounted) return;
 
-      // Garantizar timestamp
-      const eventWithTimestamp = {
-        ...data,
-        timestamp: data.timestamp || new Date().toISOString(),
-      };
+      const ts = data.timestamp || new Date().toISOString();
+      const eventWithTs = { ...data, timestamp: ts };
 
+      // ── Snapshot inicial ──────────────────────────────────────────────
       if (data.event_type === "INITIAL_SNAPSHOT") {
-        console.log("INITIAL_SNAPSHOT recibido, eventos:", data.events?.length);
         setPatients(data.patients || []);
         setMetrics(data.global_state || {});
-        // Cargar eventos históricos
-        const historicalEvents = (data.events || []).map((ev) => ({
+        const hist = (data.events || []).map((ev) => ({
           ...ev,
-          timestamp: ev.timestamp || new Date().toISOString(),
+          timestamp: ev.timestamp || ts,
         }));
-        setEvents(historicalEvents.slice(0, 200));
+        setEvents(hist.slice(0, 200));
         return;
       }
 
-      // Nuevo evento
-      setEvents((prev) => {
-        const newEvents = [eventWithTimestamp, ...prev];
-        return newEvents.slice(0, 200);
-      });
+      // ── Actualizar lista global de eventos ────────────────────────────
+      setEvents((prev) => [eventWithTs, ...prev].slice(0, 200));
 
-      const patient = data.payload?.patient;
-      if (patient) {
+      // ── Actualizar métricas globales ──────────────────────────────────
+      if (data.global_state) setMetrics(data.global_state);
+
+      // ── Actualizar tabla de pacientes ─────────────────────────────────
+      const patFromPayload =
+        data.payload?.patient ||
+        (data.event_type === "PATIENT_ARRIVED" ? data.payload : null);
+      if (patFromPayload) {
         setPatients((prev) => [
-          patient,
-          ...prev.filter((item) => item.id_paciente !== patient.id_paciente),
+          patFromPayload,
+          ...prev.filter((p) => p.id_paciente !== patFromPayload.id_paciente),
         ]);
       }
 
-      if (data.global_state) {
-        setMetrics(data.global_state);
+      // ── Flujo del paciente activo ─────────────────────────────────────
+      const evPatientId =
+        data.payload?.patient?.id_paciente ||
+        data.payload?.patient_id ||
+        data.payload?.id_paciente ||
+        data.payload?.patient?.patient_id;
+
+      const currentActive = activePatientIdRef.current;
+
+      // Cuando un nuevo paciente LLEGA → inicializar flujo
+      if (
+        data.event_type === "PATIENT_ARRIVED" ||
+        data.event_type === "PATIENT_ADDED"
+      ) {
+        const newId = evPatientId || data.payload?.id_paciente;
+        if (newId) {
+          activePatientIdRef.current = newId;
+          setActivePatientId(newId);
+          patientEventsRef.current = [eventWithTs];
+          setPatientEvents([eventWithTs]);
+          setAdmissionResult({
+            id_paciente: newId,
+            priority: null,
+            department: null,
+            bed_id: null,
+            medico: null,
+            enfermero: null,
+            estado: "En evaluación",
+            reasons: [],
+            factors: [],
+            estimated_time: null,
+          });
+          setIsProcessing(true);
+        }
+        return;
+      }
+
+      // Para eventos de flujo: solo acumular si son del paciente activo
+      if (
+        PATIENT_FLOW_EVENTS.has(data.event_type) &&
+        currentActive &&
+        (!evPatientId || evPatientId === currentActive)
+      ) {
+        patientEventsRef.current = [...patientEventsRef.current, eventWithTs];
+        setPatientEvents([...patientEventsRef.current]);
+
+        // Enriquecer resultado según evento
+        if (data.event_type === "PATIENT_TRIAGED") {
+          setAdmissionResult((prev) => ({
+            ...(prev || {}),
+            id_paciente: evPatientId || currentActive,
+            priority: data.payload?.priority,
+            reasons: data.payload?.reasons || [],
+            factors: data.payload?.factors || [],
+            estimated_time: data.payload?.estimated_time,
+            estado: "Triaje completado",
+          }));
+        }
+
+        if (data.event_type === "RESOURCE_ALLOCATED") {
+          setAdmissionResult((prev) => ({
+            ...(prev || {}),
+            department: data.payload?.department,
+            bed_id: data.payload?.bed_id,
+            estado: "Cama asignada",
+          }));
+        }
+
+        if (data.event_type === "STAFF_ASSIGNED") {
+          setAdmissionResult((prev) => ({
+            ...(prev || {}),
+            medico: data.payload?.medico_id || data.payload?.staff?.id_empleado,
+            enfermero: data.payload?.enfermero_id || data.payload?.nurse?.id_empleado,
+            estado: "Personal asignado",
+          }));
+        }
+
+        if (
+          data.event_type === "FORECAST_UPDATED" ||
+          data.event_type === "SIMULATION_TICK"
+        ) {
+          setIsProcessing(false);
+          setAdmissionResult((prev) => ({
+            ...(prev || {}),
+            estado: data.payload?.result?.new_estado || "Atención iniciada",
+          }));
+        }
+
+        if (data.event_type === "PATIENT_ESCALATED") {
+          setAdmissionResult((prev) => ({
+            ...(prev || {}),
+            priority: data.payload?.new_priority,
+            estado: `Prioridad escalada → ${data.payload?.new_priority}`,
+          }));
+        }
+
+        if (data.event_type === "PATIENT_DISCHARGED") {
+          setAdmissionResult((prev) => ({
+            ...(prev || {}),
+            estado: "Alta",
+          }));
+          setIsProcessing(false);
+        }
       }
     });
 
     return () => {
       mounted = false;
-      if (wsUnsubscribe && typeof wsUnsubscribe === "function") wsUnsubscribe();
+      if (typeof wsUnsubscribe === "function") wsUnsubscribe();
     };
+  }, []);
+
+  // Callback: el formulario acaba de enviar un paciente
+  const handleNewPatientSent = useCallback(() => {
+    // Resetear flujo anterior para esperar el nuevo PATIENT_ARRIVED
+    setActivePatientId(null);
+    setPatientEvents([]);
+    setAdmissionResult(null);
+    setIsProcessing(true);
+    patientEventsRef.current = [];
+    activePatientIdRef.current = null;
   }, []);
 
   return (
@@ -106,39 +245,57 @@ function Dashboard() {
       <Navbar />
 
       <div className="dashboard-content">
+        {/* Hero */}
         <div className="dashboard-hero panel">
           <div>
-            <p className="eyebrow">Tablero hospitalario</p>
-            <h1 className="hero-title">Pacientes desde CSV</h1>
+            <p className="eyebrow">Sistema Multiagente</p>
+            <h1 className="hero-title">Admisión Hospitalaria</h1>
             <p className="hero-copy">
-              Visualiza los pacientes, departamentos, recursos y personal cargados desde los archivos CSV y monitorea
-              los eventos en tiempo real.
+              Ingresa un paciente y observa cómo los agentes toman decisiones
+              en tiempo real: triaje, asignación de cama y personal.
             </p>
           </div>
-
           <div className="hero-status">
             {loading
-              ? "Cargando datos..."
-              : `${patients.length} pacientes, ${departments.length} departamentos, ${resources.length} recursos, ${staff.length} personal`}
+              ? "Cargando datos…"
+              : `${patients.length} pacientes activos`}
           </div>
         </div>
 
         {error && <div className="alert-banner">{error}</div>}
 
+        {/* Métricas */}
         <div className="metrics-row">
           <HospitalMetrics metrics={metrics} patientsCount={patients.length} />
         </div>
 
+        {/* Grid principal */}
         <div className="dashboard-grid">
+          {/* Columna izquierda: timeline global de agentes */}
           <div className="dashboard-main-panel">
             <EventTimeline events={events} />
           </div>
+
+          {/* Columna derecha: formulario + flujo activo */}
           <div className="dashboard-side-panel">
             <AgentStatus events={events} />
-            <PatientForm />
+
+            {/* Formulario de admisión */}
+            <PatientForm onResult={handleNewPatientSent} />
+
+            {/* Panel de flujo multiagente del paciente activo */}
+            {(isProcessing || activePatientId) && (
+              <AdmissionFlow
+                patientId={activePatientId}
+                patientEvents={patientEvents}
+                result={admissionResult}
+                isProcessing={isProcessing}
+              />
+            )}
           </div>
         </div>
 
+        {/* Tabla de pacientes */}
         <PatientsTable patients={patients} loading={loading} />
       </div>
     </div>

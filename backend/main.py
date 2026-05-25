@@ -1,4 +1,4 @@
-﻿from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 from datetime import datetime
@@ -19,7 +19,6 @@ from backend.agents import (
 
 app = FastAPI()
 
-# CORS Configuration - MUST be before routes
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -31,6 +30,8 @@ app.add_middleware(
 ROOT = Path(__file__).resolve().parent
 DATA_DIR = ROOT / "data"
 
+
+# ─── WebSocket Manager ──────────────────────────────────────────────────────
 
 class WebSocketManager:
     def __init__(self):
@@ -48,7 +49,7 @@ class WebSocketManager:
         to_remove = []
         for ws in list(self.active):
             try:
-                await ws.send_text(json.dumps(message))
+                await ws.send_text(json.dumps(message, default=str))
             except Exception:
                 to_remove.append(ws)
         for ws in to_remove:
@@ -56,19 +57,23 @@ class WebSocketManager:
                 self.active.remove(ws)
 
 
+# ─── Bootstrap ──────────────────────────────────────────────────────────────
+
 event_bus = EventBus()
 state_manager = HospitalStateManager(DATA_DIR)
 
-triage = TriageAgent(event_bus, state_manager)
-resource = ResourceAgent(event_bus, state_manager)
-staff = StaffAgent(event_bus, state_manager)
-forecast = ForecastAgent(event_bus, state_manager)
-workflow = WorkflowAgent(event_bus, state_manager)
-quality = QualityAgent(event_bus, state_manager)
+triage     = TriageAgent(event_bus, state_manager)
+resource   = ResourceAgent(event_bus, state_manager)
+staff_ag   = StaffAgent(event_bus, state_manager)
+forecast   = ForecastAgent(event_bus, state_manager)
+workflow   = WorkflowAgent(event_bus, state_manager)
+quality    = QualityAgent(event_bus, state_manager)
 orchestrator = OrchestratorAgent(event_bus, state_manager)
 
 ws_manager = WebSocketManager()
 
+
+# ─── Broadcaster para todos los eventos ─────────────────────────────────────
 
 def make_broadcaster(event_type: str):
     async def _broadcast(payload: dict):
@@ -76,13 +81,14 @@ def make_broadcaster(event_type: str):
             {
                 "event_type": event_type,
                 "payload": payload,
+                "timestamp": datetime.now().isoformat(),
                 "global_state": state_manager.get_global_state(),
             }
         )
     return _broadcast
 
 
-for event_type in [
+BROADCAST_EVENTS = [
     "PATIENT_ARRIVED",
     "PATIENT_TRIAGED",
     "RESOURCE_ALLOCATED",
@@ -90,9 +96,18 @@ for event_type in [
     "SATURATION_WARNING",
     "WORKFLOW_ALERT",
     "CRITICAL_ALERT",
-]:
-    event_bus.subscribe(event_type, make_broadcaster(event_type))
+    "FORECAST_UPDATED",
+    "PATIENT_ESCALATED",
+    "PATIENT_TRANSFERRED",
+    "PATIENT_DISCHARGED",
+    "SIMULATION_TICK",
+]
 
+for evt in BROADCAST_EVENTS:
+    event_bus.subscribe(evt, make_broadcaster(evt))
+
+
+# ─── REST endpoints ──────────────────────────────────────────────────────────
 
 @app.get("/api/patients")
 def get_patients(limit: int = 100):
@@ -102,87 +117,78 @@ def get_patients(limit: int = 100):
 
 @app.get("/api/departments")
 def get_departments():
-    """Obtiene la disponibilidad de recursos por departamento"""
     try:
         import pandas as pd
         path = DATA_DIR / "recursos.csv"
         if not path.exists():
             return {"departments": [], "error": "CSV no encontrado"}
-        
         df = pd.read_csv(path)
         departments = []
         for _, row in df.iterrows():
+            total = int(row.get("total", 0))
+            ocupados = int(row.get("ocupados", 0))
             departments.append({
                 "departamento": row.get("departamento"),
-                "total": int(row.get("total")),
-                "ocupados": int(row.get("ocupados")),
-                "disponibles": int(row.get("total")) - int(row.get("ocupados")),
-                "ocupacion_pct": round((int(row.get("ocupados")) / int(row.get("total")) * 100) if int(row.get("total")) > 0 else 0, 1)
+                "total": total,
+                "ocupados": ocupados,
+                "disponibles": total - ocupados,
+                "ocupacion_pct": round((ocupados / total * 100) if total > 0 else 0, 1),
             })
-        
         return {"departments": departments, "count": len(departments)}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error cargando departamentos: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/resources")
 def get_resources():
-    """Obtiene la disponibilidad de recursos por departamento"""
     try:
         import pandas as pd
         path = DATA_DIR / "recursos.csv"
         if not path.exists():
             return {"resources": [], "error": "CSV no encontrado"}
-        
         df = pd.read_csv(path)
         resources = []
         for _, row in df.iterrows():
+            total = int(row.get("total", 0))
+            ocupados = int(row.get("ocupados", 0))
             resources.append({
                 "departamento": row.get("departamento"),
-                "total": int(row.get("total")),
-                "ocupados": int(row.get("ocupados")),
-                "disponibles": int(row.get("total")) - int(row.get("ocupados"))
+                "total": total,
+                "ocupados": ocupados,
+                "disponibles": total - ocupados,
             })
-        
         return {"resources": resources, "count": len(resources)}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error cargando recursos: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/staff")
 def get_staff():
-    """Obtiene el personal disponible por departamento"""
     try:
         import pandas as pd
         path = DATA_DIR / "personal.csv"
         if not path.exists():
             return {"staff": [], "error": "CSV no encontrado"}
-        
         df = pd.read_csv(path)
         staff = df.where(pd.notna(df), None).to_dict(orient="records")
-        
         return {"staff": staff, "count": len(staff)}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error cargando personal: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/metrics")
 def get_metrics():
-    """Obtiene las métricas resumidas del hospital"""
     try:
         import pandas as pd
         path = DATA_DIR / "metricas.csv"
         if not path.exists():
             return {"metrics": {}, "error": "CSV no encontrado"}
-        
         df = pd.read_csv(path)
         if len(df) > 0:
-            metrics = df.iloc[0].to_dict()
-            return {"metrics": metrics, "count": 1}
-        else:
-            return {"metrics": {}, "count": 0}
+            return {"metrics": df.iloc[0].to_dict(), "count": 1}
+        return {"metrics": {}, "count": 0}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error cargando métricas: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/state")
@@ -193,14 +199,17 @@ def api_state():
 @app.get("/api/health")
 def health():
     try:
+        gs = state_manager.get_global_state()
         return {
             "status": "ok",
-            "active_patients": state_manager.get_global_state().get("active_patients", 0),
-            "resources": state_manager.get_global_state().get("resources", {}),
+            "active_patients": gs.get("active_patients", 0),
+            "resources": gs.get("resources", {}),
         }
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Error interno: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc))
 
+
+# ─── WebSocket endpoint ──────────────────────────────────────────────────────
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -212,8 +221,9 @@ async def websocket_endpoint(websocket: WebSocket):
         "global_state": state_manager.get_global_state(),
         "events": state_manager.event_timeline[:50],
         "decisions": state_manager.decision_trace[-50:],
+        "timestamp": datetime.now().isoformat(),
     }
-    await websocket.send_text(json.dumps(snapshot))
+    await websocket.send_text(json.dumps(snapshot, default=str))
 
     try:
         while True:
@@ -223,13 +233,62 @@ async def websocket_endpoint(websocket: WebSocket):
             except ValueError:
                 continue
 
-            if payload.get("action") == "NEW_PATIENT":
-                patient = payload.get("patient") or {}
-                patient.setdefault("id_paciente", f"P{str(uuid.uuid4())[:7].upper()}")
-                patient["timestamp"] = patient.get("timestamp") or datetime.now().isoformat()
-                patient.setdefault("estado", "En_espera")
-                state_manager.add_patient(patient)
-                await event_bus.publish("PATIENT_ARRIVED", patient)
+            action = payload.get("action")
+            patient_data = payload.get("patient") or {}
+
+            # ── Ingresar nuevo paciente ───────────────────────────────────
+            if action == "NEW_PATIENT":
+                patient_id = f"P{str(uuid.uuid4())[:5].upper()}"
+                patient_data["id_paciente"] = patient_id
+                patient_data["timestamp"] = datetime.now().isoformat()
+                patient_data["estado"] = "En_evaluacion"
+
+                state_manager.add_patient(patient_data)
+                await event_bus.publish("PATIENT_ARRIVED", patient_data)
+
+            # ── Simular 1 hora ────────────────────────────────────────────
+            elif action == "SIMULATE_HOUR":
+                patient_id = payload.get("patient_id")
+                result = state_manager.simulate_hour(patient_id)
+                await event_bus.publish("SIMULATION_TICK", {
+                    "patient_id": patient_id,
+                    "result": result,
+                    "message": f"Simulación de 1 hora completada para {patient_id}",
+                    "timestamp": datetime.now().isoformat(),
+                })
+
+            # ── Escalar prioridad ─────────────────────────────────────────
+            elif action == "ESCALATE":
+                patient_id = payload.get("patient_id")
+                result = state_manager.escalate_patient(patient_id)
+                await event_bus.publish("PATIENT_ESCALATED", {
+                    "patient_id": patient_id,
+                    "new_priority": result.get("new_priority"),
+                    "message": f"Prioridad escalada a {result.get('new_priority')} para {patient_id}",
+                    "timestamp": datetime.now().isoformat(),
+                })
+
+            # ── Transferir paciente ───────────────────────────────────────
+            elif action == "TRANSFER":
+                patient_id = payload.get("patient_id")
+                destination = payload.get("destination", "UCI")
+                result = state_manager.transfer_patient(patient_id, destination)
+                await event_bus.publish("PATIENT_TRANSFERRED", {
+                    "patient_id": patient_id,
+                    "destination": destination,
+                    "message": f"Paciente {patient_id} transferido a {destination}",
+                    "timestamp": datetime.now().isoformat(),
+                })
+
+            # ── Dar alta ──────────────────────────────────────────────────
+            elif action == "DISCHARGE":
+                patient_id = payload.get("patient_id")
+                result = state_manager.discharge_patient(patient_id)
+                await event_bus.publish("PATIENT_DISCHARGED", {
+                    "patient_id": patient_id,
+                    "message": f"Paciente {patient_id} dado de alta",
+                    "timestamp": datetime.now().isoformat(),
+                })
 
     except WebSocketDisconnect:
         await ws_manager.disconnect(websocket)

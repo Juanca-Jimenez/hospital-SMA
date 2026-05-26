@@ -274,27 +274,29 @@ function Dashboard() {
           <PatientForm onResult={handleNewPatientSent} />
         </div>
 
-        {/* Grid principal: Timeline | Agentes + Flujo */}
+        {/* Panel de flujo clínico del paciente activo (Ubicado en la mitad de la pantalla) */}
+        {(isProcessing || activePatientId) && (
+          <div className="active-admission-flow-section">
+            <AdmissionFlow
+              patientId={activePatientId}
+              patientEvents={patientEvents}
+              result={admissionResult}
+              isProcessing={isProcessing}
+              metrics={metrics}
+            />
+          </div>
+        )}
+
+        {/* Grid principal: Timeline | Agentes */}
         <div className="dashboard-grid">
           {/* Columna izquierda: timeline global de agentes */}
           <div className="dashboard-main-panel">
             <EventTimeline events={events} />
           </div>
 
-          {/* Columna derecha: estado de agentes + flujo activo */}
+          {/* Columna derecha: estado de agentes */}
           <div className="dashboard-side-panel">
             <AgentStatus events={events} />
-
-            {/* Panel de flujo multiagente del paciente activo */}
-            {(isProcessing || activePatientId) && (
-              <AdmissionFlow
-                patientId={activePatientId}
-                patientEvents={patientEvents}
-                result={admissionResult}
-                isProcessing={isProcessing}
-                metrics={metrics}
-              />
-            )}
           </div>
         </div>
 

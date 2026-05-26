@@ -100,52 +100,428 @@ class HospitalStateManager:
 
     def _normalize_patient(self, patient: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Convierte ambos formatos (nuevo clínico y legado CSV) a estructura interna.
+        Soporta de manera cruzada y simultánea llaves en español e inglés.
+        Genera un objeto estandarizado y mantiene llaves en ambos idiomas.
         """
         p = dict(patient)
 
-        p["id_paciente"] = str(p.get("id_paciente", "")).strip()
-        p["edad"] = int(p.get("edad") or 0)
-        p["genero"] = str(p.get("genero") or "No definido")
-        p["estado"] = str(p.get("estado") or "En_espera")
+        # 1. ID del paciente
+        pid = str(p.get("id") or p.get("patientId") or p.get("id_paciente") or "").strip()
+        p["id"] = p["patientId"] = p["id_paciente"] = pid
 
-        # ── Nuevo payload clínico ─────────────────────────────────────
-        if "motivo_consulta" in p or "vitales" in p:
-            # Síntomas como lista
-            sintomas = p.get("sintomas", [])
-            if isinstance(sintomas, list):
-                p["sintomas"] = sintomas
+        # 2. Edad
+        age = p.get("age")
+        if age is None:
+            age = p.get("edad")
+        p["age"] = p["edad"] = int(age) if age is not None and str(age).isdigit() else 0
+
+        # 3. Dolor
+        pain = p.get("painLevel")
+        if pain is None:
+            pain = p.get("dolor")
+        p["painLevel"] = p["dolor"] = int(pain) if pain is not None else 0
+
+        # 4. Urgencia / Prioridad
+        urg = p.get("urgencyLevel") or p.get("prioridad") or p.get("nivel_urgencia")
+        if isinstance(urg, int) or (isinstance(urg, str) and urg.isdigit()):
+            val = int(urg)
+            if val == 1:
+                urg = "CRITICAL"
+            elif val == 2:
+                urg = "HIGH"
+            elif val == 3:
+                urg = "MEDIUM"
             else:
-                p["sintomas"] = [s.strip() for s in str(sintomas).split(",") if s.strip()]
-
-            p["motivo_consulta"] = str(p.get("motivo_consulta") or "")
-            p["dolor"] = int(p.get("dolor") or 0)
-
-            # Vitales estructurados
-            vitales = p.get("vitales") or {}
-            if isinstance(vitales, str):
-                try:
-                    vitales = json.loads(vitales)
-                except Exception:
-                    vitales = {}
-            p["vitales"] = vitales
-
-            # Legado: nivel_urgencia calculado del dolor para compat.
-            p.setdefault("nivel_urgencia", 3)
-
+                urg = "LOW"
+        elif isinstance(urg, str):
+            urg = urg.strip().upper()
+            if urg == "NORMAL":
+                urg = "LOW"
         else:
-            # ── Formato legado CSV ────────────────────────────────────
-            p["nivel_urgencia"] = int(p.get("nivel_urgencia") or 5)
-            sintomas = p.get("sintomas", "")
-            p["sintomas"] = str(sintomas) if sintomas else "No informado"
+            urg = "LOW"
+        
+        p["urgencyLevel"] = p["prioridad"] = p["nivel_urgencia"] = urg
 
-        p["departamento"] = str(p.get("departamento") or "Pendiente")
+        # 5. Oxígeno (SpO2)
+        vitales = p.get("vitales") or {}
+        if isinstance(vitales, str):
+            try:
+                vitales = json.loads(vitales)
+            except Exception:
+                vitales = {}
+        
+        o2 = p.get("oxygen") or p.get("spo2") or vitales.get("spo2")
+        if o2 is None:
+            raw = str(p.get("signos_vitales", "")).lower()
+            for token in raw.replace(",", " ").split():
+                try:
+                    val = float(token)
+                    if 50 < val <= 100:
+                        o2 = val
+                        break
+                except ValueError:
+                    pass
+        if o2 is None:
+            o2 = 99.0
+        p["oxygen"] = p["spo2"] = float(o2)
+
+        # 6. Temperatura
+        temp = p.get("temperature") or p.get("temperatura") or vitales.get("temperatura")
+        if temp is None:
+            temp = 37.0
+        p["temperature"] = p["temperatura"] = float(temp)
+
+        # 7. Frecuencia cardiaca (heartRate)
+        hr = p.get("heartRate") or p.get("frecuencia") or vitales.get("frecuencia")
+        if hr is None:
+            hr = 80.0
+        p["heartRate"] = p["frecuencia"] = float(hr)
+
+        # 8. Presión arterial
+        press_raw = p.get("pressure") or p.get("presion") or vitales.get("presion") or {}
+        sis, dia = 120, 80
+        if isinstance(press_raw, dict):
+            sis = press_raw.get("sistolica") or press_raw.get("systolic") or 120
+            dia = press_raw.get("diastolica") or press_raw.get("diastolic") or 80
+        elif isinstance(press_raw, str) and "/" in press_raw:
+            try:
+                parts = press_raw.split("/")
+                sis = int(parts[0].strip())
+                dia = int(parts[1].strip())
+            except Exception:
+                pass
+        
+        press_dict = {"sistolica": int(sis), "diastolica": int(dia)}
+        p["pressure"] = p["presion"] = press_dict
+
+        # Estructura vitales estructurada para compatibilidad
+        p["vitales"] = {
+            "presion": press_dict,
+            "temperatura": p["temperature"],
+            "frecuencia": p["heartRate"],
+            "spo2": p["oxygen"]
+        }
+
+        # 9. Síntomas
+        sint = p.get("symptoms") or p.get("sintomas") or []
+        if isinstance(sint, str):
+            sint = [s.strip() for s in sint.split(",") if s.strip()]
+        elif not isinstance(sint, list):
+            sint = []
+        p["symptoms"] = p["sintomas"] = [str(s).strip() for s in sint]
+
+        # 10. Diagnóstico / Motivo consulta
+        diag = p.get("diagnosis") or p.get("diagnostico") or p.get("motivo_consulta") or "Consulta general"
+        p["diagnosis"] = p["diagnostico"] = p["motivo_consulta"] = str(diag).strip()
+
+        # 11. Movilidad
+        mob = p.get("mobility") or p.get("movilidad") or "NORMAL"
+        p["mobility"] = p["movilidad"] = str(mob).strip().upper()
+
+        # 12. Conciencia
+        cons = p.get("consciousness") or p.get("conciencia") or "NORMAL"
+        p["consciousness"] = p["conciencia"] = str(cons).strip().upper()
+
+        # 13. Estado anterior y actual
+        state = p.get("state") or p.get("estado") or "REGISTERED"
+        prev = p.get("previousState") or p.get("estado_previo") or state
+        p["state"] = p["estado"] = state
+        p["previousState"] = p["estado_previo"] = prev
+
+        # 14. Campos de asignación para compatibilidad
+        p["departamento"] = p.get("departamento") or "Pendiente"
         p["medico_asignado"] = p.get("medico_asignado") or None
+        p["enfermero_asignado"] = p.get("enfermero_asignado") or None
         p["bed_type"] = p.get("bed_type") or None
         p["cama"] = p.get("cama") or None
-        p["prioridad"] = p.get("prioridad") or None
 
         return p
+
+    def calculate_priority_score(self, patient: Dict[str, Any]) -> int:
+        """
+        Calcula el puntaje de apoyo clínico (no decide por sí mismo).
+        """
+        score = 0
+        p = self._normalize_patient(patient)
+        
+        # 1. Dolor
+        dolor = p.get("painLevel", 0)
+        if 0 <= dolor <= 2:
+            score += 0
+        elif 3 <= dolor <= 4:
+            score += 1
+        elif 5 <= dolor <= 6:
+            score += 2
+        elif 7 <= dolor <= 8:
+            score += 4
+        elif 9 <= dolor <= 10:
+            score += 6
+            
+        # 2. Edad
+        edad = p.get("age", 0)
+        if edad < 18:
+            score += 1
+        elif 18 <= edad <= 65:
+            score += 0
+        else: # > 65
+            score += 2
+            
+        # 3. Oxígeno
+        o2 = p.get("oxygen", 99.0)
+        if o2 >= 95.0:
+            score += 0
+        elif 90.0 <= o2 <= 94.0:
+            score += 2
+        else: # < 90
+            score += 5
+            
+        # 4. Urgencia
+        urg = p.get("urgencyLevel", "LOW")
+        if urg == "LOW":
+            score += 0
+        elif urg == "MEDIUM":
+            score += 2
+        elif urg == "HIGH":
+            score += 4
+        elif urg == "CRITICAL":
+            score += 7
+            
+        # 5. Temperatura
+        temp = p.get("temperature", 37.0)
+        if temp < 38.0:
+            score += 0
+        elif 38.0 <= temp <= 39.0:
+            score += 1
+        else: # > 39
+            score += 2
+            
+        return score
+
+    def evaluate_clinical_conditions(self, patient: Dict[str, Any]) -> int:
+        """
+        Evalúa criticidad clínica basada en los 5 pilares médicos.
+        Retorna la cantidad de condiciones críticas encontradas.
+        """
+        p = self._normalize_patient(patient)
+        critical_count = 0
+        sintomas = [s.lower() for s in p.get("symptoms", [])]
+        diag = str(p.get("diagnosis", "")).lower()
+        
+        # A. Respiración comprometida
+        if p.get("oxygen", 99.0) < 90.0 or "dificultad respiratoria" in sintomas:
+            critical_count += 1
+            
+        # B. Estado neurológico
+        if (p.get("consciousness") == "ALTERED" or 
+            "pérdida conciencia" in sintomas or 
+            "confusion severa" in sintomas or
+            "confusión severa" in sintomas):
+            critical_count += 1
+            
+        # C. Inestabilidad hemodinámica
+        presion = p.get("pressure", {})
+        sis = presion.get("sistolica", 120)
+        dia = presion.get("diastolica", 80)
+        hr = p.get("heartRate", 80)
+        if sis < 90 or sis > 180 or dia < 50 or dia > 110 or hr > 140 or hr < 45:
+            critical_count += 1
+            
+        # D. Dolor extremo
+        if p.get("painLevel", 0) >= 9:
+            critical_count += 1
+            
+        # E. Diagnóstico severo
+        diagnosticos_severos = ["neumonía grave", "pneumonia", "trauma severo", "sepsis", "falla respiratoria", "shock", "insuficiencia respiratoria"]
+        if any(d in diag for d in diagnosticos_severos) or "fractura" in sintomas:
+            critical_count += 1
+            
+        return critical_count
+
+    def determine_clinical_area(self, patient: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Decisión clínica central del flujo hospitalario considerando múltiples variables.
+        Aplica reglas clínicas reales, score de apoyo, regla anti-UCI y validación de transiciones.
+        Retorna el payload obligatorio esperado por la especificación.
+        """
+        p = self._normalize_patient(patient)
+        
+        # 1. Score clínico de apoyo
+        score = self.calculate_priority_score(p)
+        
+        # 2. Evaluación de criticidad
+        critical_count = self.evaluate_clinical_conditions(p)
+        
+        # Variables locales de apoyo
+        age = p.get("age", 0)
+        pain = p.get("painLevel", 0)
+        urg = p.get("urgencyLevel", "LOW")
+        o2 = p.get("oxygen", 99.0)
+        temp = p.get("temperature", 37.0)
+        sintomas = [s.lower() for s in p.get("symptoms", [])]
+        diag = str(p.get("diagnosis", "")).lower()
+        consciousness = p.get("consciousness", "NORMAL")
+        
+        justification = []
+        explanation = ""
+        recommended_area = ""
+        
+        # 3. Determinar área clínica propuesta por score (como apoyo)
+        if score <= 3:
+            proposed_area = "CONSULTATION"
+        elif score <= 7:
+            proposed_area = "OBSERVATION"
+        elif score <= 12:
+            proposed_area = "HOSPITALIZATION"
+        else:
+            proposed_area = "ICU"
+            
+        # 4. Aplicar reglas médicas específicas para determinar el destino
+        
+        # --- Criterios de Consulta ---
+        has_critical_symptom = any(s in sintomas for s in ["dificultad respiratoria", "pérdida conciencia", "dolor torácico"])
+        has_severe_diag = any(d in diag for d in ["neumonía", "sepsis", "fractura", "trauma", "falla", "shock", "severe", "grave"])
+        
+        is_consultation_eligible = (
+            pain <= 4 and 
+            urg in ["LOW", "MEDIUM"] and 
+            o2 >= 95.0 and 
+            not has_critical_symptom and 
+            not has_severe_diag
+        )
+        
+        # --- Criterios de UCI (Muy restrictivo) ---
+        presion = p.get("pressure", {})
+        sis = presion.get("sistolica", 120)
+        dia = presion.get("diastolica", 80)
+        is_pressure_critical = (sis < 90 or sis > 180 or dia < 50 or dia > 110)
+        is_respiration_compromised = (o2 < 90.0 or "dificultad respiratoria" in sintomas)
+        
+        has_icu_lethal_indicator = (
+            o2 < 90.0 or 
+            consciousness == "ALTERED" or 
+            is_respiration_compromised or 
+            is_pressure_critical or 
+            pain >= 9
+        )
+        
+        is_icu_eligible = (
+            urg == "CRITICAL" and 
+            critical_count >= 2 and 
+            has_icu_lethal_indicator
+        )
+        
+        # Flujo de decisión clínica jerárquica
+        if is_icu_eligible:
+            recommended_area = "ICU"
+            justification.append("Paciente en estado crítico general")
+            if o2 < 90: justification.append("Hipoxia severa")
+            if consciousness == "ALTERED": justification.append("Estado de conciencia alterado")
+            if pain >= 9: justification.append("Dolor insoportable")
+            explanation = "Paciente crítico con inestabilidad extrema de signos vitales, requiere vigilancia en UCI."
+        elif proposed_area == "ICU":
+            # Propuesto por score pero no cumple requisitos estrictos de UCI
+            recommended_area = "HOSPITALIZATION"
+            justification.append("Puntaje de gravedad elevado")
+            justification.append("No cumple criterios UCI restrictivos")
+            explanation = "Paciente con score elevado pero sin inestabilidad de múltiples órganos. Se ingresa a Hospitalización por seguridad."
+        elif pain >= 7 and (urg == "HIGH" or has_severe_diag):
+            recommended_area = "HOSPITALIZATION"
+            if pain >= 7: justification.append("Dolor severo")
+            if urg == "HIGH": justification.append("Urgencia alta")
+            if has_severe_diag: justification.append("Diagnóstico severo")
+            explanation = "Paciente requiere terapia de soporte continua y control de dolor en Hospitalización."
+        elif (5 <= pain <= 7) or (age > 65) or (temp >= 38.5) or (o2 < 95.0) or (urg == "MEDIUM"):
+            recommended_area = "OBSERVATION"
+            if 5 <= pain <= 7: justification.append("Dolor moderado")
+            if age > 65: justification.append("Paciente de edad avanzada")
+            if temp >= 38.5: justification.append("Fiebre alta")
+            if o2 < 95.0: justification.append("Saturación de oxígeno levemente baja")
+            if urg == "MEDIUM": justification.append("Urgencia media")
+            explanation = "Paciente requiere observación y reevaluación a corto plazo para monitorizar evolución."
+        elif is_consultation_eligible:
+            recommended_area = "CONSULTATION"
+            justification.append("Síntomas leves")
+            justification.append("Signos vitales estables")
+            explanation = "Paciente estable, con cuadro clínico leve. Apto para Consulta Externa."
+        else:
+            # Fallback secundario a score
+            recommended_area = proposed_area
+            justification.append(f"Asignación basada en Score Clínico ({score})")
+            explanation = f"Paciente asignado a {proposed_area} basado en el puntaje de prioridad acumulado."
+            
+        # --- REGLA ANTI-UCI (OBLIGATORIA) ---
+        if recommended_area == "ICU" and pain < 7 and urg != "CRITICAL":
+            self.add_alert(f"ICU_BLOCKED_BY_CLINICAL_POLICY para paciente {p.get('id')}")
+            self.add_event("ICU_BLOCKED_BY_CLINICAL_POLICY", {"patient_id": p.get("id"), "score": score})
+            if score < 8:
+                recommended_area = "OBSERVATION"
+                justification = ["Desviado de UCI por política clínica", "Dolor no severo y urgencia no crítica"]
+                explanation = "Bloqueado de UCI por política clínica (dolor no severo y urgencia no crítica). Redirigido a Observación."
+            else:
+                recommended_area = "HOSPITALIZATION"
+                justification = ["Desviado de UCI por política clínica", "Puntaje de prioridad elevado"]
+                explanation = "Bloqueado de UCI por política clínica (dolor no severo y urgencia no crítica). Redirigido a Hospitalización por score elevado."
+
+        # --- MÁQUINA DE ESTADOS (VALIDACIÓN DE TRANSICIONES) ---
+        prev_state = str(p.get("previousState") or p.get("estado") or "REGISTERED").upper()
+        if prev_state in ["EN_ESPERA", "EN_EVALUACION", "REGISTERED"]:
+            prev_state = "REGISTERED"
+        elif prev_state in ["EN_TRIAJE", "TRIAGED"]:
+            prev_state = "TRIAGED"
+        elif prev_state in ["CONSULTA", "CONSULTATION"]:
+            prev_state = "CONSULTATION"
+        elif prev_state in ["OBSERVACION", "OBSERVATION", "EN_OBSERVACION"]:
+            prev_state = "OBSERVATION"
+        elif prev_state in ["HOSPITALIZACION", "HOSPITALIZATION"]:
+            prev_state = "HOSPITALIZATION"
+        elif prev_state in ["UCI", "ICU"]:
+            prev_state = "ICU"
+        elif prev_state in ["ALTA", "DISCHARGED", "TRANSFERIDO"]:
+            prev_state = "DISCHARGED"
+            
+        # Transición prohibida a ICU
+        if recommended_area == "ICU" and prev_state in ["REGISTERED", "CONSULTATION", "DISCHARGED"]:
+            alert_msg = f"Transición prohibida detectada: {prev_state} -> ICU para {p.get('id')}. Desviando paciente de forma segura."
+            self.add_alert(alert_msg)
+            self.add_event("STATE_TRANSITION_BLOCKED", {
+                "patient_id": p.get("id"),
+                "previous_state": prev_state,
+                "proposed_state": "ICU"
+            })
+            if prev_state == "CONSULTATION":
+                recommended_area = "OBSERVATION"
+                justification = ["Desviado de UCI: Transición desde Consulta prohibida"]
+                explanation = f"Bloqueada transición {prev_state} -> ICU. Redirigido a Observación por seguridad clínica."
+            elif prev_state == "REGISTERED":
+                recommended_area = "OBSERVATION"
+                justification = ["Desviado de UCI: Paciente sin triaje/admisión formal en área"]
+                explanation = f"Bloqueada transición {prev_state} -> ICU. Debe ser ingresado primero a Observación para estabilización."
+            elif prev_state == "DISCHARGED":
+                recommended_area = "OBSERVATION"
+                justification = ["Rechazada transición de Alta a UCI"]
+                explanation = "Un paciente dado de alta no puede ir directo a UCI. Requiere re-admisión a Observación."
+
+        wait_times = {
+            "CONSULTATION": "30–60 min",
+            "OBSERVATION": "15–30 min",
+            "HOSPITALIZATION": "< 15 min",
+            "ICU": "Inmediato"
+        }
+        
+        if not justification:
+            justification.append("Criterio clínico general")
+            
+        return {
+            "patientId": p.get("id"),
+            "previousState": prev_state,
+            "newState": recommended_area,
+            "priorityScore": score,
+            "recommendedArea": recommended_area,
+            "estimatedWaitTime": wait_times.get(recommended_area, "A definir"),
+            "justification": justification,
+            "explanation": explanation
+        }
+
 
     # ─── Estado derivado ───────────────────────────────────────────────────
 
@@ -218,15 +594,18 @@ class HospitalStateManager:
         occupied = r["total"] - r["available"]
         return round((occupied / r["total"]) * 100, 2)
 
-    def allocate_resource(self, priority: str, patient: Dict[str, Any]) -> Optional[str]:
-        if priority == "NORMAL":
-            prefs = ["GENERAL", "PEDIATRICS", "EMERGENCY"]
-        elif priority == "MEDIUM":
-            prefs = ["GENERAL", "EMERGENCY", "ICU"]
-        elif priority == "HIGH":
-            prefs = ["EMERGENCY", "ICU", "GENERAL"]
-        else:  # CRITICAL
+    def allocate_resource(self, priority: str, patient: Dict[str, Any], recommended_area: Optional[str] = None) -> Optional[str]:
+        if not recommended_area:
+            recommended_area = patient.get("recommendedArea") or "OBSERVATION"
+            
+        if recommended_area == "ICU":
             prefs = ["ICU", "EMERGENCY", "GENERAL"]
+        elif recommended_area == "HOSPITALIZATION":
+            prefs = ["GENERAL", "SURGERY", "EMERGENCY"]
+        elif recommended_area == "CONSULTATION":
+            prefs = ["CONSULTATION", "GENERAL"]
+        else: # OBSERVATION
+            prefs = ["EMERGENCY", "GENERAL"]
 
         for rtype in prefs:
             r = self.resources.get(rtype)
@@ -236,22 +615,31 @@ class HospitalStateManager:
                 dept = self._map_resource_to_department(rtype)
                 patient["bed_type"] = rtype
                 patient["departamento_asignado"] = dept
-                patient["estado"] = "Cama_asignada"
+                # For compatibility, also update standard department field
+                patient["department"] = dept
+                
+                # Keep state aligned
+                patient["estado"] = recommended_area
+                patient["state"] = recommended_area
+                
                 # Generar ID de cama
-                prefix = dept[:3].upper().replace("Á", "A").replace("É", "E")
+                prefix = dept[:3].upper().replace("Á", "A").replace("É", "E").replace("Ó", "O")
                 bed_id = f"{prefix}-{random.randint(1, 30):02d}"
                 patient["bed_id"] = bed_id
                 patient["cama"] = bed_id
+                
                 self.refresh_derived_state()
                 self.add_event("RESOURCE_ALLOCATED", {
                     "patient": patient,
                     "resource_type": rtype,
                     "available": r["available"],
+                    "department": dept,
+                    "bed_id": bed_id
                 })
                 return rtype
 
         self.add_alert(
-            f"No hay recursos para {patient['id_paciente']} con prioridad {priority}."
+            f"No hay recursos para {patient.get('id_paciente')} con área recomendada {recommended_area}."
         )
         return None
 
@@ -289,13 +677,21 @@ class HospitalStateManager:
 
     def assign_nurse(self, patient: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Asigna un enfermero disponible al paciente."""
+        area = patient.get("recommendedArea")
+        role_pref = "enfermera de uci" if area == "ICU" else "enferm"
+        
         nurses = [
             s for s in self.staff
             if s["estado"] == "Disponible"
-            and ("enferm" in s["rol"].lower() or "nurse" in s["rol"].lower())
+            and (role_pref in s["rol"].lower() or "nurse" in s["rol"].lower())
         ]
         if not nurses:
-            # Si no hay enfermeros específicos, tomar cualquier disponible
+            nurses = [
+                s for s in self.staff
+                if s["estado"] == "Disponible"
+                and ("enferm" in s["rol"].lower() or "nurse" in s["rol"].lower())
+            ]
+        if not nurses:
             nurses = [s for s in self.staff if s["estado"] == "Disponible"]
         if not nurses:
             return None
@@ -306,27 +702,22 @@ class HospitalStateManager:
         return nurse
 
     def select_staff_specialty(self, patient: Dict[str, Any], priority: str) -> str:
-        motivo = str(patient.get("motivo_consulta", "")).lower()
-        sintomas = patient.get("sintomas", [])
-        if isinstance(sintomas, list):
-            sint_text = " ".join(sintomas).lower()
-        else:
-            sint_text = str(sintomas).lower()
-        dept = str(patient.get("departamento_asignado", "")).lower()
-
-        if "cardio" in sint_text or "torácico" in sint_text or "cardiologia" in dept:
-            return "Cardiologia"
-        if "traumat" in sint_text or "fractura" in sint_text:
-            return "Traumatologia"
-        if "neurológico" in motivo or "conciencia" in sint_text:
-            return "Neurologia"
-        if "pediatr" in dept:
-            return "Pediatria"
-        if priority == "CRITICAL":
+        area = patient.get("recommendedArea")
+        if area == "ICU":
             return "Medicina Intensiva"
-        if priority == "HIGH":
+        elif area == "HOSPITALIZATION":
+            motivo = str(patient.get("diagnosis", "")).lower()
+            sintomas = [s.lower() for s in patient.get("symptoms", [])]
+            sint_text = " ".join(sintomas)
+            if "cardio" in sint_text or "torácico" in sint_text:
+                return "Cardiología"
+            if "traumat" in sint_text or "fractura" in sint_text:
+                return "Traumatología"
+            return "Cirugía"
+        elif area == "OBSERVATION":
+            return "Medicina Interna"
+        else: # CONSULTATION
             return "Medicina General"
-        return "Medicina General"
 
     # ─── Alertas y eventos ─────────────────────────────────────────────────
 
@@ -470,7 +861,7 @@ class HospitalStateManager:
             "Pediatría": "PEDIATRICS",
             "Cirugia": "SURGERY",
             "Cirugía": "SURGERY",
-            "Consulta_Externa": "GENERAL",
+            "Consulta_Externa": "CONSULTATION",
             "Cardiologia": "GENERAL",
             "Radiologia": "GENERAL",
         }
@@ -481,8 +872,9 @@ class HospitalStateManager:
             "ICU": "UCI",
             "GENERAL": "Hospitalización",
             "PEDIATRICS": "Pediatría",
-            "EMERGENCY": "Urgencias",
+            "EMERGENCY": "Emergencias",
             "SURGERY": "Cirugía",
+            "CONSULTATION": "Consulta_Externa",
         }
         return mapping.get(rtype, rtype)
 

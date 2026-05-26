@@ -29,30 +29,48 @@ class TriageAgent(BaseAgent):
 
     async def handle_patient(self, patient: Dict[str, Any]):
         priority = classify_priority(patient)
-        reasons = build_triage_reasons(patient, priority)
-        factors = build_triage_factors(patient)
-        wait = estimated_wait_time(priority)
-
-        # Actualizar estado en el state manager
         patient["prioridad"] = priority
-        patient["estado"] = "En_triaje"
+        patient["estado"] = "TRIAGED"
+        
         self.state_manager.update_patient_field(
             patient.get("id_paciente"), "prioridad", priority
         )
         self.state_manager.update_patient_field(
-            patient.get("id_paciente"), "estado", "En_triaje"
+            patient.get("id_paciente"), "estado", "TRIAGED"
         )
+
+        # Obtener decisión clínica central de StateManager
+        decision = self.state_manager.determine_clinical_area(patient)
+        recommended_area = decision["recommendedArea"]
+        score = decision["priorityScore"]
+        justification = decision["justification"]
+        explanation = decision["explanation"]
+        wait = decision["estimatedWaitTime"]
+
+        # Actualizar campos en el paciente
+        patient["recommendedArea"] = recommended_area
+        patient["priorityScore"] = score
+        patient["justification"] = justification
+        patient["explanation"] = explanation
+        patient["estimatedWaitTime"] = wait
+
+        # Sincronizar en el state_manager
+        self.state_manager.update_patient_field(patient.get("id_paciente"), "recommendedArea", recommended_area)
+        self.state_manager.update_patient_field(patient.get("id_paciente"), "priorityScore", score)
+        self.state_manager.update_patient_field(patient.get("id_paciente"), "justification", justification)
+        self.state_manager.update_patient_field(patient.get("id_paciente"), "explanation", explanation)
 
         self.state_manager.record_decision(
             patient_id=patient.get("id_paciente"),
             event="PATIENT_TRIAGED",
             agent=self.name,
-            decision=priority,
-            reason=" | ".join(reasons),
+            decision=recommended_area,
+            reason=explanation,
             source_data={
-                "sintomas": patient.get("sintomas"),
-                "vitales": patient.get("vitales"),
+                "score": score,
+                "urgencyLevel": priority,
                 "dolor": patient.get("dolor"),
+                "justification": justification
             },
         )
 
@@ -61,8 +79,8 @@ class TriageAgent(BaseAgent):
             {
                 "patient": patient,
                 "priority": priority,
-                "reasons": reasons,
-                "factors": factors,
+                "reasons": justification,
+                "factors": [f"Score Clínico: {score}", f"Área Recomendada: {recommended_area}"],
                 "estimated_time": wait,
                 "timestamp": datetime.now().isoformat(),
             },
@@ -79,22 +97,21 @@ class ResourceAgent(BaseAgent):
     async def allocate_resource(self, data: Dict[str, Any]):
         patient = data["patient"]
         priority = data["priority"]
-        bed = self.state_manager.allocate_resource(priority, patient)
+        recommended_area = patient.get("recommendedArea") or "OBSERVATION"
+        
+        bed = self.state_manager.allocate_resource(priority, patient, recommended_area)
 
         dept = patient.get("departamento_asignado", "Pendiente")
-        bed_id = patient.get("bed_id") or (
-            f"{dept[:3].upper()}-{random.randint(1,30):02d}" if bed else None
-        )
-        patient["bed_id"] = bed_id
-
+        bed_id = patient.get("bed_id")
+        
         reason = (
-            f"Cama {bed_id} asignada en {dept} por prioridad {priority}."
+            f"Cama {bed_id} asignada en el área {recommended_area} ({dept})."
             if bed
-            else "No se encontró recurso disponible; se generó alerta."
+            else f"No se encontró recurso disponible en {dept} para {recommended_area}."
         )
 
         self.state_manager.update_patient_field(
-            patient.get("id_paciente"), "estado", "Cama_asignada"
+            patient.get("id_paciente"), "estado", recommended_area
         )
         self.state_manager.update_patient_field(
             patient.get("id_paciente"), "cama", bed_id
@@ -106,7 +123,7 @@ class ResourceAgent(BaseAgent):
             agent=self.name,
             decision=bed or "NO_RESOURCE",
             reason=reason,
-            source_data={"priority": priority},
+            source_data={"recommendedArea": recommended_area, "priority": priority},
         )
 
         await self.event_bus.publish(
@@ -133,22 +150,25 @@ class StaffAgent(BaseAgent):
     async def assign_staff(self, data: Dict[str, Any]):
         patient = data["patient"]
         priority = data["priority"]
+        recommended_area = patient.get("recommendedArea") or "OBSERVATION"
+        
         specialty = self.state_manager.select_staff_specialty(patient, priority)
         staff = self.state_manager.assign_staff(patient, specialty)
 
         decision = staff["id_empleado"] if staff else "NO_STAFF"
         reason = (
-            f"Se asignó {staff['id_empleado']} (especialidad: {staff['especialidad']})."
+            f"Se asignó médico especialista: {staff['nombre']} (especialidad: {staff['especialidad']}) para área {recommended_area}."
             if staff
-            else "No se encontró personal disponible."
+            else f"No se encontró personal especialista en {specialty} disponible."
         )
 
         # Buscar enfermero adicional
         nurse = self.state_manager.assign_nurse(patient)
         nurse_id = nurse["id_empleado"] if nurse else None
 
+        # Actualizar estado final a recommendedArea
         self.state_manager.update_patient_field(
-            patient.get("id_paciente"), "estado", "Personal_asignado"
+            patient.get("id_paciente"), "estado", recommended_area
         )
 
         self.state_manager.record_decision(
@@ -157,7 +177,7 @@ class StaffAgent(BaseAgent):
             agent=self.name,
             decision=decision,
             reason=reason,
-            source_data={"specialty_requested": specialty},
+            source_data={"specialty_requested": specialty, "recommendedArea": recommended_area},
         )
 
         await self.event_bus.publish(

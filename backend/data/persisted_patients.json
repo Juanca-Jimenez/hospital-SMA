@@ -736,5 +736,826 @@
     "bed_type": null,
     "cama": null,
     "prioridad": null
+  },
+  {
+    "edad": 29,
+    "genero": "Femenino",
+    "motivo_consulta": "Trauma",
+    "sintomas": [
+      "Pérdida conciencia"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 100,
+        "diastolica": 100
+      },
+      "temperatura": 40,
+      "frecuencia": 100,
+      "spo2": 70
+    },
+    "dolor": 8,
+    "id_paciente": "PEE5E6",
+    "timestamp": "2026-05-26T10:48:45.480606",
+    "estado": "En_evaluacion",
+    "nivel_urgencia": 3,
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null,
+    "cama": null,
+    "prioridad": null
+  },
+  {
+    "edad": 30,
+    "genero": "Masculino",
+    "motivo_consulta": "Control",
+    "sintomas": [
+      "Tos"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 100,
+        "diastolica": 120
+      },
+      "temperatura": 37,
+      "frecuencia": 124,
+      "spo2": 80
+    },
+    "dolor": 0,
+    "id_paciente": "PC994F",
+    "timestamp": "2026-05-26T10:49:43.428877",
+    "estado": "En_evaluacion",
+    "nivel_urgencia": 3,
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null,
+    "cama": null,
+    "prioridad": null
+  },
+  {
+    "edad": 54,
+    "genero": "Masculino",
+    "motivo_consulta": "Respiratorio",
+    "sintomas": [
+      "Dolor torácico"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 100,
+        "diastolica": 100
+      },
+      "temperatura": 37.0,
+      "frecuencia": 90.0,
+      "spo2": 70.0
+    },
+    "dolor": 1,
+    "id_paciente": "PEDB4E",
+    "timestamp": "2026-05-26T11:15:25.885006",
+    "estado": "En_evaluacion",
+    "id": "PEDB4E",
+    "patientId": "PEDB4E",
+    "age": 54,
+    "painLevel": 1,
+    "urgencyLevel": "LOW",
+    "prioridad": "LOW",
+    "nivel_urgencia": "LOW",
+    "oxygen": 70.0,
+    "spo2": 70.0,
+    "temperature": 37.0,
+    "temperatura": 37.0,
+    "heartRate": 90.0,
+    "frecuencia": 90.0,
+    "pressure": {
+      "sistolica": 100,
+      "diastolica": 100
+    },
+    "presion": {
+      "sistolica": 100,
+      "diastolica": 100
+    },
+    "symptoms": [
+      "Dolor torácico"
+    ],
+    "diagnosis": "Respiratorio",
+    "diagnostico": "Respiratorio",
+    "mobility": "NORMAL",
+    "movilidad": "NORMAL",
+    "consciousness": "NORMAL",
+    "conciencia": "NORMAL",
+    "state": "En_evaluacion",
+    "previousState": "En_evaluacion",
+    "estado_previo": "En_evaluacion",
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "enfermero_asignado": null,
+    "bed_type": null,
+    "cama": null
+  },
+  {
+    "edad": 49,
+    "genero": "Femenino",
+    "motivo_consulta": "Respiratorio",
+    "sintomas": [
+      "Cansancio"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 200,
+        "diastolica": 120
+      },
+      "temperatura": 39.0,
+      "frecuencia": 118.0,
+      "spo2": 90.0
+    },
+    "dolor": 1,
+    "id_paciente": "PBD407",
+    "timestamp": "2026-05-26T11:20:02.940044",
+    "estado": "En_evaluacion",
+    "id": "PBD407",
+    "patientId": "PBD407",
+    "age": 49,
+    "painLevel": 1,
+    "urgencyLevel": "LOW",
+    "prioridad": "LOW",
+    "nivel_urgencia": "LOW",
+    "oxygen": 90.0,
+    "spo2": 90.0,
+    "temperature": 39.0,
+    "temperatura": 39.0,
+    "heartRate": 118.0,
+    "frecuencia": 118.0,
+    "pressure": {
+      "sistolica": 200,
+      "diastolica": 120
+    },
+    "presion": {
+      "sistolica": 200,
+      "diastolica": 120
+    },
+    "symptoms": [
+      "Cansancio"
+    ],
+    "diagnosis": "Respiratorio",
+    "diagnostico": "Respiratorio",
+    "mobility": "NORMAL",
+    "movilidad": "NORMAL",
+    "consciousness": "NORMAL",
+    "conciencia": "NORMAL",
+    "state": "En_evaluacion",
+    "previousState": "En_evaluacion",
+    "estado_previo": "En_evaluacion",
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "enfermero_asignado": null,
+    "bed_type": null,
+    "cama": null
+  },
+  {
+    "edad": 59,
+    "genero": "Femenino",
+    "motivo_consulta": "Trauma",
+    "sintomas": [
+      "Tos"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 100,
+        "diastolica": 120
+      },
+      "temperatura": 40.0,
+      "frecuencia": 70.0,
+      "spo2": 80.0
+    },
+    "dolor": 1,
+    "id_paciente": "PB0572",
+    "timestamp": "2026-05-26T11:20:36.469284",
+    "estado": "En_evaluacion",
+    "id": "PB0572",
+    "patientId": "PB0572",
+    "age": 59,
+    "painLevel": 1,
+    "urgencyLevel": "LOW",
+    "prioridad": "LOW",
+    "nivel_urgencia": "LOW",
+    "oxygen": 80.0,
+    "spo2": 80.0,
+    "temperature": 40.0,
+    "temperatura": 40.0,
+    "heartRate": 70.0,
+    "frecuencia": 70.0,
+    "pressure": {
+      "sistolica": 100,
+      "diastolica": 120
+    },
+    "presion": {
+      "sistolica": 100,
+      "diastolica": 120
+    },
+    "symptoms": [
+      "Tos"
+    ],
+    "diagnosis": "Trauma",
+    "diagnostico": "Trauma",
+    "mobility": "NORMAL",
+    "movilidad": "NORMAL",
+    "consciousness": "NORMAL",
+    "conciencia": "NORMAL",
+    "state": "En_evaluacion",
+    "previousState": "En_evaluacion",
+    "estado_previo": "En_evaluacion",
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "enfermero_asignado": null,
+    "bed_type": null,
+    "cama": null
+  },
+  {
+    "edad": 60,
+    "genero": "Masculino",
+    "motivo_consulta": "Respiratorio",
+    "sintomas": [
+      "Tos"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 110,
+        "diastolica": 100
+      },
+      "temperatura": 40.0,
+      "frecuencia": 101.0,
+      "spo2": 70.0
+    },
+    "dolor": 1,
+    "id_paciente": "P6F154",
+    "timestamp": "2026-05-26T11:29:02.871551",
+    "estado": "En_evaluacion",
+    "id": "P6F154",
+    "patientId": "P6F154",
+    "age": 60,
+    "painLevel": 1,
+    "urgencyLevel": "LOW",
+    "prioridad": "LOW",
+    "nivel_urgencia": "LOW",
+    "oxygen": 70.0,
+    "spo2": 70.0,
+    "temperature": 40.0,
+    "temperatura": 40.0,
+    "heartRate": 101.0,
+    "frecuencia": 101.0,
+    "pressure": {
+      "sistolica": 110,
+      "diastolica": 100
+    },
+    "presion": {
+      "sistolica": 110,
+      "diastolica": 100
+    },
+    "symptoms": [
+      "Tos"
+    ],
+    "diagnosis": "Respiratorio",
+    "diagnostico": "Respiratorio",
+    "mobility": "NORMAL",
+    "movilidad": "NORMAL",
+    "consciousness": "NORMAL",
+    "conciencia": "NORMAL",
+    "state": "En_evaluacion",
+    "previousState": "En_evaluacion",
+    "estado_previo": "En_evaluacion",
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "enfermero_asignado": null,
+    "bed_type": null,
+    "cama": null
+  },
+  {
+    "edad": 23,
+    "genero": "Masculino",
+    "motivo_consulta": "Trauma",
+    "sintomas": [
+      "Dolor torácico"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 100,
+        "diastolica": 120
+      },
+      "temperatura": 40.0,
+      "frecuencia": 110.0,
+      "spo2": 80.0
+    },
+    "dolor": 1,
+    "id_paciente": "PEDD5B",
+    "timestamp": "2026-05-26T11:36:00.459242",
+    "estado": "En_evaluacion",
+    "id": "PEDD5B",
+    "patientId": "PEDD5B",
+    "age": 23,
+    "painLevel": 1,
+    "urgencyLevel": "LOW",
+    "prioridad": "LOW",
+    "nivel_urgencia": "LOW",
+    "oxygen": 80.0,
+    "spo2": 80.0,
+    "temperature": 40.0,
+    "temperatura": 40.0,
+    "heartRate": 110.0,
+    "frecuencia": 110.0,
+    "pressure": {
+      "sistolica": 100,
+      "diastolica": 120
+    },
+    "presion": {
+      "sistolica": 100,
+      "diastolica": 120
+    },
+    "symptoms": [
+      "Dolor torácico"
+    ],
+    "diagnosis": "Trauma",
+    "diagnostico": "Trauma",
+    "mobility": "NORMAL",
+    "movilidad": "NORMAL",
+    "consciousness": "NORMAL",
+    "conciencia": "NORMAL",
+    "state": "En_evaluacion",
+    "previousState": "En_evaluacion",
+    "estado_previo": "En_evaluacion",
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "enfermero_asignado": null,
+    "bed_type": null,
+    "cama": null
+  },
+  {
+    "edad": 40,
+    "genero": "Masculino",
+    "motivo_consulta": "Dolor",
+    "sintomas": [
+      "Dolor torácico"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 100,
+        "diastolica": 100
+      },
+      "temperatura": 40.0,
+      "frecuencia": 100.0,
+      "spo2": 70.0
+    },
+    "dolor": 1,
+    "id_paciente": "P3FF65",
+    "timestamp": "2026-05-26T11:37:47.300807",
+    "estado": "En_evaluacion",
+    "id": "P3FF65",
+    "patientId": "P3FF65",
+    "age": 40,
+    "painLevel": 1,
+    "urgencyLevel": "LOW",
+    "prioridad": "LOW",
+    "nivel_urgencia": "LOW",
+    "oxygen": 70.0,
+    "spo2": 70.0,
+    "temperature": 40.0,
+    "temperatura": 40.0,
+    "heartRate": 100.0,
+    "frecuencia": 100.0,
+    "pressure": {
+      "sistolica": 100,
+      "diastolica": 100
+    },
+    "presion": {
+      "sistolica": 100,
+      "diastolica": 100
+    },
+    "symptoms": [
+      "Dolor torácico"
+    ],
+    "diagnosis": "Dolor",
+    "diagnostico": "Dolor",
+    "mobility": "NORMAL",
+    "movilidad": "NORMAL",
+    "consciousness": "NORMAL",
+    "conciencia": "NORMAL",
+    "state": "En_evaluacion",
+    "previousState": "En_evaluacion",
+    "estado_previo": "En_evaluacion",
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "enfermero_asignado": null,
+    "bed_type": null,
+    "cama": null
+  },
+  {
+    "edad": 40,
+    "genero": "Masculino",
+    "motivo_consulta": "Dolor",
+    "sintomas": [
+      "Dolor torácico"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 100,
+        "diastolica": 107
+      },
+      "temperatura": 40.0,
+      "frecuencia": 100.0,
+      "spo2": 70.0
+    },
+    "dolor": 1,
+    "id_paciente": "P1352D",
+    "timestamp": "2026-05-26T11:41:21.860034",
+    "estado": "En_evaluacion",
+    "id": "P1352D",
+    "patientId": "P1352D",
+    "age": 40,
+    "painLevel": 1,
+    "urgencyLevel": "LOW",
+    "prioridad": "LOW",
+    "nivel_urgencia": "LOW",
+    "oxygen": 70.0,
+    "spo2": 70.0,
+    "temperature": 40.0,
+    "temperatura": 40.0,
+    "heartRate": 100.0,
+    "frecuencia": 100.0,
+    "pressure": {
+      "sistolica": 100,
+      "diastolica": 107
+    },
+    "presion": {
+      "sistolica": 100,
+      "diastolica": 107
+    },
+    "symptoms": [
+      "Dolor torácico"
+    ],
+    "diagnosis": "Dolor",
+    "diagnostico": "Dolor",
+    "mobility": "NORMAL",
+    "movilidad": "NORMAL",
+    "consciousness": "NORMAL",
+    "conciencia": "NORMAL",
+    "state": "En_evaluacion",
+    "previousState": "En_evaluacion",
+    "estado_previo": "En_evaluacion",
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "enfermero_asignado": null,
+    "bed_type": null,
+    "cama": null
+  },
+  {
+    "edad": 100,
+    "genero": "Masculino",
+    "motivo_consulta": "Respiratorio",
+    "sintomas": [
+      "Dificultad respiratoria"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 100,
+        "diastolica": 100
+      },
+      "temperatura": 40.0,
+      "frecuencia": 38.0,
+      "spo2": 70.0
+    },
+    "dolor": 1,
+    "id_paciente": "P90C25",
+    "timestamp": "2026-05-26T11:41:51.083181",
+    "estado": "En_evaluacion",
+    "id": "P90C25",
+    "patientId": "P90C25",
+    "age": 100,
+    "painLevel": 1,
+    "urgencyLevel": "LOW",
+    "prioridad": "LOW",
+    "nivel_urgencia": "LOW",
+    "oxygen": 70.0,
+    "spo2": 70.0,
+    "temperature": 40.0,
+    "temperatura": 40.0,
+    "heartRate": 38.0,
+    "frecuencia": 38.0,
+    "pressure": {
+      "sistolica": 100,
+      "diastolica": 100
+    },
+    "presion": {
+      "sistolica": 100,
+      "diastolica": 100
+    },
+    "symptoms": [
+      "Dificultad respiratoria"
+    ],
+    "diagnosis": "Respiratorio",
+    "diagnostico": "Respiratorio",
+    "mobility": "NORMAL",
+    "movilidad": "NORMAL",
+    "consciousness": "NORMAL",
+    "conciencia": "NORMAL",
+    "state": "En_evaluacion",
+    "previousState": "En_evaluacion",
+    "estado_previo": "En_evaluacion",
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "enfermero_asignado": null,
+    "bed_type": null,
+    "cama": null
+  },
+  {
+    "edad": 100,
+    "genero": "Masculino",
+    "motivo_consulta": "Respiratorio",
+    "sintomas": [
+      "Dificultad respiratoria"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 100,
+        "diastolica": 100
+      },
+      "temperatura": 39.0,
+      "frecuencia": 38.0,
+      "spo2": 70.0
+    },
+    "dolor": 1,
+    "id_paciente": "P5FC6B",
+    "timestamp": "2026-05-26T11:44:03.939441",
+    "estado": "En_evaluacion",
+    "id": "P5FC6B",
+    "patientId": "P5FC6B",
+    "age": 100,
+    "painLevel": 1,
+    "urgencyLevel": "LOW",
+    "prioridad": "LOW",
+    "nivel_urgencia": "LOW",
+    "oxygen": 70.0,
+    "spo2": 70.0,
+    "temperature": 39.0,
+    "temperatura": 39.0,
+    "heartRate": 38.0,
+    "frecuencia": 38.0,
+    "pressure": {
+      "sistolica": 100,
+      "diastolica": 100
+    },
+    "presion": {
+      "sistolica": 100,
+      "diastolica": 100
+    },
+    "symptoms": [
+      "Dificultad respiratoria"
+    ],
+    "diagnosis": "Respiratorio",
+    "diagnostico": "Respiratorio",
+    "mobility": "NORMAL",
+    "movilidad": "NORMAL",
+    "consciousness": "NORMAL",
+    "conciencia": "NORMAL",
+    "state": "En_evaluacion",
+    "previousState": "En_evaluacion",
+    "estado_previo": "En_evaluacion",
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "enfermero_asignado": null,
+    "bed_type": null,
+    "cama": null
+  },
+  {
+    "edad": 71,
+    "genero": "Masculino",
+    "motivo_consulta": "Respiratorio",
+    "sintomas": [
+      "Dificultad respiratoria"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 100,
+        "diastolica": 100
+      },
+      "temperatura": 39.0,
+      "frecuencia": 38.0,
+      "spo2": 70.0
+    },
+    "dolor": 1,
+    "id_paciente": "P3EF41",
+    "timestamp": "2026-05-26T11:46:00.490487",
+    "estado": "En_evaluacion",
+    "id": "P3EF41",
+    "patientId": "P3EF41",
+    "age": 71,
+    "painLevel": 1,
+    "urgencyLevel": "LOW",
+    "prioridad": "LOW",
+    "nivel_urgencia": "LOW",
+    "oxygen": 70.0,
+    "spo2": 70.0,
+    "temperature": 39.0,
+    "temperatura": 39.0,
+    "heartRate": 38.0,
+    "frecuencia": 38.0,
+    "pressure": {
+      "sistolica": 100,
+      "diastolica": 100
+    },
+    "presion": {
+      "sistolica": 100,
+      "diastolica": 100
+    },
+    "symptoms": [
+      "Dificultad respiratoria"
+    ],
+    "diagnosis": "Respiratorio",
+    "diagnostico": "Respiratorio",
+    "mobility": "NORMAL",
+    "movilidad": "NORMAL",
+    "consciousness": "NORMAL",
+    "conciencia": "NORMAL",
+    "state": "En_evaluacion",
+    "previousState": "En_evaluacion",
+    "estado_previo": "En_evaluacion",
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "enfermero_asignado": null,
+    "bed_type": null,
+    "cama": null
+  },
+  {
+    "edad": 78,
+    "genero": "Masculino",
+    "motivo_consulta": "Trauma",
+    "sintomas": [
+      "Dolor abdominal"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 100,
+        "diastolica": 100
+      },
+      "temperatura": 35.0,
+      "frecuencia": 40.0,
+      "spo2": 80.0
+    },
+    "dolor": 5,
+    "id_paciente": "P39707",
+    "timestamp": "2026-05-26T11:48:00.042527",
+    "estado": "En_evaluacion",
+    "id": "P39707",
+    "patientId": "P39707",
+    "age": 78,
+    "painLevel": 5,
+    "urgencyLevel": "LOW",
+    "prioridad": "LOW",
+    "nivel_urgencia": "LOW",
+    "oxygen": 80.0,
+    "spo2": 80.0,
+    "temperature": 35.0,
+    "temperatura": 35.0,
+    "heartRate": 40.0,
+    "frecuencia": 40.0,
+    "pressure": {
+      "sistolica": 100,
+      "diastolica": 100
+    },
+    "presion": {
+      "sistolica": 100,
+      "diastolica": 100
+    },
+    "symptoms": [
+      "Dolor abdominal"
+    ],
+    "diagnosis": "Trauma",
+    "diagnostico": "Trauma",
+    "mobility": "NORMAL",
+    "movilidad": "NORMAL",
+    "consciousness": "NORMAL",
+    "conciencia": "NORMAL",
+    "state": "En_evaluacion",
+    "previousState": "En_evaluacion",
+    "estado_previo": "En_evaluacion",
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "enfermero_asignado": null,
+    "bed_type": null,
+    "cama": null
+  },
+  {
+    "edad": 40,
+    "genero": "Masculino",
+    "motivo_consulta": "Trauma",
+    "sintomas": [
+      "Dolor abdominal"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 100,
+        "diastolica": 100
+      },
+      "temperatura": 35.0,
+      "frecuencia": 40.0,
+      "spo2": 80.0
+    },
+    "dolor": 5,
+    "id_paciente": "PB976D",
+    "timestamp": "2026-05-26T11:51:24.155247",
+    "estado": "En_evaluacion",
+    "id": "PB976D",
+    "patientId": "PB976D",
+    "age": 40,
+    "painLevel": 5,
+    "urgencyLevel": "LOW",
+    "prioridad": "LOW",
+    "nivel_urgencia": "LOW",
+    "oxygen": 80.0,
+    "spo2": 80.0,
+    "temperature": 35.0,
+    "temperatura": 35.0,
+    "heartRate": 40.0,
+    "frecuencia": 40.0,
+    "pressure": {
+      "sistolica": 100,
+      "diastolica": 100
+    },
+    "presion": {
+      "sistolica": 100,
+      "diastolica": 100
+    },
+    "symptoms": [
+      "Dolor abdominal"
+    ],
+    "diagnosis": "Trauma",
+    "diagnostico": "Trauma",
+    "mobility": "NORMAL",
+    "movilidad": "NORMAL",
+    "consciousness": "NORMAL",
+    "conciencia": "NORMAL",
+    "state": "En_evaluacion",
+    "previousState": "En_evaluacion",
+    "estado_previo": "En_evaluacion",
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "enfermero_asignado": null,
+    "bed_type": null,
+    "cama": null
+  },
+  {
+    "edad": 70,
+    "genero": "Masculino",
+    "motivo_consulta": "Respiratorio",
+    "sintomas": [
+      "Tos"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 114,
+        "diastolica": 100
+      },
+      "temperatura": 40.0,
+      "frecuencia": 110.0,
+      "spo2": 69.0
+    },
+    "dolor": 3,
+    "id_paciente": "P53068",
+    "timestamp": "2026-05-26T11:57:06.949262",
+    "estado": "En_evaluacion",
+    "id": "P53068",
+    "patientId": "P53068",
+    "age": 70,
+    "painLevel": 3,
+    "urgencyLevel": "LOW",
+    "prioridad": "LOW",
+    "nivel_urgencia": "LOW",
+    "oxygen": 69.0,
+    "spo2": 69.0,
+    "temperature": 40.0,
+    "temperatura": 40.0,
+    "heartRate": 110.0,
+    "frecuencia": 110.0,
+    "pressure": {
+      "sistolica": 114,
+      "diastolica": 100
+    },
+    "presion": {
+      "sistolica": 114,
+      "diastolica": 100
+    },
+    "symptoms": [
+      "Tos"
+    ],
+    "diagnosis": "Respiratorio",
+    "diagnostico": "Respiratorio",
+    "mobility": "NORMAL",
+    "movilidad": "NORMAL",
+    "consciousness": "NORMAL",
+    "conciencia": "NORMAL",
+    "state": "En_evaluacion",
+    "previousState": "En_evaluacion",
+    "estado_previo": "En_evaluacion",
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "enfermero_asignado": null,
+    "bed_type": null,
+    "cama": null
   }
 ]

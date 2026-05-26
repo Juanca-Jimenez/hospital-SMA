@@ -357,5 +357,384 @@
     "bed_type": null,
     "cama": null,
     "prioridad": null
+  },
+  {
+    "edad": 78,
+    "genero": "Femenino",
+    "motivo_consulta": "Digestivo",
+    "sintomas": [
+      "Mareo"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 90,
+        "diastolica": 70
+      },
+      "temperatura": 40,
+      "frecuencia": 40,
+      "spo2": 70
+    },
+    "dolor": 4,
+    "id_paciente": "PB619D",
+    "timestamp": "2026-05-25T13:58:20.381158",
+    "estado": "En_evaluacion",
+    "nivel_urgencia": 3,
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null,
+    "cama": null,
+    "prioridad": null
+  },
+  {
+    "edad": 40,
+    "genero": "Masculino",
+    "motivo_consulta": "Respiratorio",
+    "sintomas": [
+      "Cansancio"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 90,
+        "diastolica": 50
+      },
+      "temperatura": 40,
+      "frecuencia": 37,
+      "spo2": 70
+    },
+    "dolor": 3,
+    "id_paciente": "PEBB79",
+    "timestamp": "2026-05-25T14:01:10.011789",
+    "estado": "En_evaluacion",
+    "nivel_urgencia": 3,
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null,
+    "cama": null,
+    "prioridad": null
+  },
+  {
+    "edad": 19,
+    "genero": "Femenino",
+    "motivo_consulta": "Dolor",
+    "sintomas": [
+      "Dolor abdominal"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 90,
+        "diastolica": 50
+      },
+      "temperatura": 37,
+      "frecuencia": 40,
+      "spo2": 70
+    },
+    "dolor": 3,
+    "id_paciente": "PCC4D7",
+    "timestamp": "2026-05-25T14:02:26.179819",
+    "estado": "En_evaluacion",
+    "nivel_urgencia": 3,
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null,
+    "cama": null,
+    "prioridad": null
+  },
+  {
+    "edad": 27,
+    "genero": "Masculino",
+    "motivo_consulta": "Control",
+    "sintomas": [
+      "Cansancio"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 90,
+        "diastolica": 50
+      },
+      "temperatura": 39,
+      "frecuencia": 40,
+      "spo2": 69
+    },
+    "dolor": 1,
+    "id_paciente": "P7FAA2",
+    "timestamp": "2026-05-25T14:04:43.412457",
+    "estado": "En_evaluacion",
+    "nivel_urgencia": 3,
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null,
+    "cama": null,
+    "prioridad": null
+  },
+  {
+    "edad": 40,
+    "genero": "Femenino",
+    "motivo_consulta": "Trauma",
+    "sintomas": [
+      "Dolor torácico"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 90,
+        "diastolica": 100
+      },
+      "temperatura": 39,
+      "frecuencia": 110,
+      "spo2": 70
+    },
+    "dolor": 4,
+    "id_paciente": "P08487",
+    "timestamp": "2026-05-25T14:06:50.595406",
+    "estado": "En_evaluacion",
+    "nivel_urgencia": 3,
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null,
+    "cama": null,
+    "prioridad": null
+  },
+  {
+    "edad": 38,
+    "genero": "Masculino",
+    "motivo_consulta": "Neurológico",
+    "sintomas": [
+      "Pérdida conciencia"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 90,
+        "diastolica": 70
+      },
+      "temperatura": 40,
+      "frecuencia": 90,
+      "spo2": 70
+    },
+    "dolor": 3,
+    "id_paciente": "P91AC3",
+    "timestamp": "2026-05-25T14:09:29.678163",
+    "estado": "En_evaluacion",
+    "nivel_urgencia": 3,
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null,
+    "cama": null,
+    "prioridad": null
+  },
+  {
+    "edad": 74,
+    "genero": "Masculino",
+    "motivo_consulta": "Digestivo",
+    "sintomas": [
+      "Dolor abdominal"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 90,
+        "diastolica": 70
+      },
+      "temperatura": 40,
+      "frecuencia": 59,
+      "spo2": 70
+    },
+    "dolor": 2,
+    "id_paciente": "PFCB44",
+    "timestamp": "2026-05-25T14:10:09.636655",
+    "estado": "En_evaluacion",
+    "nivel_urgencia": 3,
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null,
+    "cama": null,
+    "prioridad": null
+  },
+  {
+    "edad": 40,
+    "genero": "Masculino",
+    "motivo_consulta": "Trauma",
+    "sintomas": [
+      "Dolor torácico"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 90,
+        "diastolica": 40
+      },
+      "temperatura": 40,
+      "frecuencia": 40,
+      "spo2": 60
+    },
+    "dolor": 4,
+    "id_paciente": "P710CB",
+    "timestamp": "2026-05-25T14:18:16.227030",
+    "estado": "En_evaluacion",
+    "nivel_urgencia": 3,
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null,
+    "cama": null,
+    "prioridad": null
+  },
+  {
+    "edad": 48,
+    "genero": "Masculino",
+    "motivo_consulta": "Trauma",
+    "sintomas": [
+      "Dolor torácico"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 90,
+        "diastolica": 40
+      },
+      "temperatura": 40,
+      "frecuencia": 40,
+      "spo2": 60
+    },
+    "dolor": 4,
+    "id_paciente": "P2CC76",
+    "timestamp": "2026-05-25T14:18:45.563153",
+    "estado": "En_evaluacion",
+    "nivel_urgencia": 3,
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null,
+    "cama": null,
+    "prioridad": null
+  },
+  {
+    "edad": 40,
+    "genero": "Masculino",
+    "motivo_consulta": "Dolor",
+    "sintomas": [
+      "Dolor torácico"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 80,
+        "diastolica": 70
+      },
+      "temperatura": 35,
+      "frecuencia": 100,
+      "spo2": 70
+    },
+    "dolor": 3,
+    "id_paciente": "PAD4D4",
+    "timestamp": "2026-05-26T10:28:07.580546",
+    "estado": "En_evaluacion",
+    "nivel_urgencia": 3,
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null,
+    "cama": null,
+    "prioridad": null
+  },
+  {
+    "edad": 70,
+    "genero": "Masculino",
+    "motivo_consulta": "Neurológico",
+    "sintomas": [
+      "Dolor torácico"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 100,
+        "diastolica": 69
+      },
+      "temperatura": 40,
+      "frecuencia": 70,
+      "spo2": 70
+    },
+    "dolor": 3,
+    "id_paciente": "P61977",
+    "timestamp": "2026-05-26T10:29:30.822779",
+    "estado": "En_evaluacion",
+    "nivel_urgencia": 3,
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null,
+    "cama": null,
+    "prioridad": null
+  },
+  {
+    "edad": 70,
+    "genero": "Masculino",
+    "motivo_consulta": "Digestivo",
+    "sintomas": [
+      "Dolor torácico",
+      "Dolor abdominal"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 80,
+        "diastolica": 40
+      },
+      "temperatura": 35,
+      "frecuencia": 40,
+      "spo2": 70
+    },
+    "dolor": 4,
+    "id_paciente": "PACBEE",
+    "timestamp": "2026-05-26T10:37:08.488262",
+    "estado": "En_evaluacion",
+    "nivel_urgencia": 3,
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null,
+    "cama": null,
+    "prioridad": null
+  },
+  {
+    "edad": 52,
+    "genero": "Masculino",
+    "motivo_consulta": "Dolor",
+    "sintomas": [
+      "Dolor torácico"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 140,
+        "diastolica": 90
+      },
+      "temperatura": 38.5,
+      "frecuencia": 95,
+      "spo2": 94
+    },
+    "dolor": 0,
+    "id_paciente": "P78517",
+    "timestamp": "2026-05-26T10:38:40.384802",
+    "estado": "En_evaluacion",
+    "nivel_urgencia": 3,
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null,
+    "cama": null,
+    "prioridad": null
+  },
+  {
+    "edad": 18,
+    "genero": "Masculino",
+    "motivo_consulta": "Fiebre",
+    "sintomas": [
+      "Cansancio"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 80,
+        "diastolica": 40
+      },
+      "temperatura": 35,
+      "frecuencia": 100,
+      "spo2": 70
+    },
+    "dolor": 1,
+    "id_paciente": "PEAA02",
+    "timestamp": "2026-05-26T10:42:20.716398",
+    "estado": "En_evaluacion",
+    "nivel_urgencia": 3,
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "bed_type": null,
+    "cama": null,
+    "prioridad": null
   }
 ]

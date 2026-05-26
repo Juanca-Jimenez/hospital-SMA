@@ -292,6 +292,7 @@ function Dashboard() {
                 patientEvents={patientEvents}
                 result={admissionResult}
                 isProcessing={isProcessing}
+                metrics={metrics}
               />
             )}
           </div>

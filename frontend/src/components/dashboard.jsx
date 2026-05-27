@@ -221,6 +221,14 @@ function Dashboard() {
           }));
         }
 
+        if (data.event_type === "PATIENT_TRANSFERRED") {
+          setAdmissionResult((prev) => ({
+            ...(prev || {}),
+            department: data.payload?.destination || data.payload?.department,
+            estado: `Transferido a ${data.payload?.destination || data.payload?.department}`,
+          }));
+        }
+
         if (data.event_type === "PATIENT_DISCHARGED") {
           setAdmissionResult((prev) => ({
             ...(prev || {}),

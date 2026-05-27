@@ -1,7 +1,7 @@
 // src/components/AdmissionFlow.jsx
 // Panel de seguimiento clínico rediseñado - Estructura jerárquica y clara
-import { useState } from "react";
-import { sendAction } from "../services/websocket";
+import { useState, useEffect } from "react";
+import { fetchDepartments, sendAction } from "../services/websocket";
 
 const STEPS = [
   { key: "arrived", label: "Ingreso", icon: "🚑", events: ["PATIENT_ARRIVED", "PATIENT_ADDED"] },
@@ -204,9 +204,115 @@ function ClinicalHistory({ events }) {
   );
 }
 
+function TransferDialog({ patientId, currentDepartment, onClose }) {
+  const [departments, setDepartments] = useState([]);
+  const [selectedDepartment, setSelectedDepartment] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadDepartments = async () => {
+      try {
+        const data = await fetchDepartments();
+        if (!mounted) return;
+        const options = Array.isArray(data.departments) ? data.departments : [];
+        const filtered = options.filter((dept) => dept.departamento !== currentDepartment);
+        setDepartments(filtered);
+        setSelectedDepartment(filtered[0]?.departamento || "");
+      } catch (err) {
+        setError("No se pudieron cargar los departamentos");
+      }
+    };
+    loadDepartments();
+    return () => { mounted = false; };
+  }, [currentDepartment]);
+
+  const handleConfirm = () => {
+    if (!selectedDepartment) return;
+    setLoading(true);
+    sendAction("TRANSFER", patientId, { destination: selectedDepartment });
+    setTimeout(() => {
+      setLoading(false);
+      onClose();
+    }, 800);
+  };
+
+  return (
+    <div className="cf-transfer-dialog">
+      <div className="cf-transfer-header">
+        <h4>Transferir paciente</h4>
+        <button className="cf-transfer-close" onClick={onClose} aria-label="Cerrar">×</button>
+      </div>
+
+      <div className="cf-transfer-body">
+        <p>Departamento actual: <strong>{currentDepartment || "Pendiente"}</strong></p>
+
+        {error && <div className="cf-transfer-error">{error}</div>}
+
+        <div className="cf-transfer-label">
+          Seleccione el nuevo departamento
+        </div>
+
+        <div className="cf-transfer-grid">
+          {departments.length === 0 ? (
+            <div className="cf-transfer-empty">No hay departamentos disponibles</div>
+          ) : (
+            departments.map((dept) => {
+              const occupied = dept.ocupados ?? 0;
+              const total = dept.total ?? 0;
+              const available = Math.max((dept.disponibles ?? total - occupied), 0);
+              const occupancyPct = total > 0 ? Math.round((occupied / total) * 100) : 0;
+              const isSelected = selectedDepartment === dept.departamento;
+
+              return (
+                <button
+                  key={dept.departamento}
+                  type="button"
+                  className={`cf-transfer-option ${isSelected ? "selected" : ""}`}
+                  onClick={() => setSelectedDepartment(dept.departamento)}
+                >
+                  <div className="cf-transfer-option-top">
+                    <strong>{dept.departamento}</strong>
+                    <span className="cf-transfer-option-badge">{available} libres</span>
+                  </div>
+                  <div className="cf-transfer-option-meta">
+                    <span>{occupied}/{total} ocupadas</span>
+                    <span>{occupancyPct}% ocupación</span>
+                  </div>
+                  <div className="cf-transfer-capacity-bar">
+                    <div
+                      className="cf-transfer-capacity-fill"
+                      style={{ width: `${occupancyPct}%` }}
+                    />
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      <div className="cf-transfer-actions">
+        <button className="cf-action-btn cf-action-btn-secondary" onClick={onClose} disabled={loading}>
+          Cancelar
+        </button>
+        <button
+          className="cf-action-btn cf-action-btn-primary"
+          onClick={handleConfirm}
+          disabled={loading || !selectedDepartment}
+        >
+          {loading ? "Transferiendo..." : "Confirmar transferencia"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // 5. ACCIONES DISPONIBLES
-function AvailableActions({ patientId, isComplete, estado }) {
+function AvailableActions({ patientId, isComplete, estado, currentDepartment }) {
   const [loading, setLoading] = useState(null);
+  const [showTransferDialog, setShowTransferDialog] = useState(false);
   
   const isDischarge = estado?.includes("Alta");
   
@@ -217,6 +323,10 @@ function AvailableActions({ patientId, isComplete, estado }) {
   ] : [];
 
   const handleAction = (actionKey) => {
+    if (actionKey === "TRANSFER") {
+      setShowTransferDialog(true);
+      return;
+    }
     setLoading(actionKey);
     sendAction(actionKey, patientId);
     setTimeout(() => setLoading(null), 1200);
@@ -225,18 +335,28 @@ function AvailableActions({ patientId, isComplete, estado }) {
   if (!isComplete || actions.length === 0) return null;
 
   return (
-    <div className="cf-actions">
-      {actions.map((a) => (
-        <button
-          key={a.key}
-          className={`cf-action-btn cf-action-btn-${a.color}`}
-          onClick={() => handleAction(a.key)}
-          disabled={!!loading}
-        >
-          {loading === a.key ? "..." : a.label}
-        </button>
-      ))}
-    </div>
+    <>
+      <div className="cf-actions">
+        {actions.map((a) => (
+          <button
+            key={a.key}
+            className={`cf-action-btn cf-action-btn-${a.color}`}
+            onClick={() => handleAction(a.key)}
+            disabled={!!loading}
+          >
+            {loading === a.key ? "..." : a.label}
+          </button>
+        ))}
+      </div>
+
+      {showTransferDialog && (
+        <TransferDialog
+          patientId={patientId}
+          currentDepartment={currentDepartment}
+          onClose={() => setShowTransferDialog(false)}
+        />
+      )}
+    </>
   );
 }
 
@@ -244,18 +364,7 @@ function AvailableActions({ patientId, isComplete, estado }) {
 function HospitalImpact({ metrics }) {
   return (
     <div className="cf-impact">
-      <div className="cf-impact-item">
-        <span className="cf-impact-label">Camas</span>
-        <span className="cf-impact-value">{metrics?.occupied_beds || 0}/{metrics?.total_beds || 10}</span>
-      </div>
-      <div className="cf-impact-item">
-        <span className="cf-impact-label">Ocupación</span>
-        <span className="cf-impact-value">{Math.round((metrics?.occupancy_rate || 0) * 100)}%</span>
-      </div>
-      <div className="cf-impact-item">
-        <span className="cf-impact-label">Personal</span>
-        <span className="cf-impact-value">{metrics?.available_staff || 0}</span>
-      </div>
+      CLASIFICACIÓN HOSPITALARIA
     </div>
   );
 }
@@ -287,6 +396,7 @@ function AdmissionFlow({ patientId, patientEvents, result, isProcessing, metrics
           patientId={patientId}
           isComplete={isComplete}
           estado={result?.estado}
+          currentDepartment={result?.department || result?.departamento}
         />
       )}
       {metrics && <HospitalImpact metrics={metrics} />}

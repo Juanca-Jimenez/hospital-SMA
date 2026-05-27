@@ -378,15 +378,19 @@ class HospitalStateManager:
         # 4. Aplicar reglas médicas específicas para determinar el destino
         
         # --- Criterios de Consulta ---
+        motivo = str(p.get("motivo_consulta", "") or "").lower()
         has_critical_symptom = any(s in sintomas for s in ["dificultad respiratoria", "pérdida conciencia", "dolor torácico"])
         has_severe_diag = any(d in diag for d in ["neumonía", "sepsis", "fractura", "trauma", "falla", "shock", "severe", "grave"])
+        low_risk_motive = any(keyword in motivo for keyword in ["dolor", "digestivo", "control", "consulta general", "fiebre", "gripe", "náuseas", "mareo"])
+        high_risk_motive = any(keyword in motivo for keyword in ["trauma", "neurológico", "neurologico", "respiratorio", "cardio", "cardiovascular", "shock", "sepsis", "neumonía", "neumonia", "falla"])
         
         is_consultation_eligible = (
-            pain <= 4 and 
-            urg in ["LOW", "MEDIUM"] and 
-            o2 >= 95.0 and 
-            not has_critical_symptom and 
-            not has_severe_diag
+            pain <= 4 and
+            urg in ["LOW", "MEDIUM"] and
+            o2 >= 95.0 and
+            not has_critical_symptom and
+            not has_severe_diag and
+            low_risk_motive
         )
         
         # --- Criterios de UCI (Muy restrictivo) ---
@@ -397,17 +401,20 @@ class HospitalStateManager:
         is_respiration_compromised = (o2 < 90.0 or "dificultad respiratoria" in sintomas)
         
         has_icu_lethal_indicator = (
-            o2 < 90.0 or 
-            consciousness == "ALTERED" or 
-            is_respiration_compromised or 
-            is_pressure_critical or 
-            pain >= 9
+            o2 < 90.0 or
+            consciousness == "ALTERED" or
+            is_pressure_critical or
+            is_respiration_compromised
         )
         
         is_icu_eligible = (
-            urg == "CRITICAL" and 
-            critical_count >= 2 and 
-            has_icu_lethal_indicator
+            urg == "CRITICAL" and
+            has_icu_lethal_indicator and
+            (
+                critical_count >= 3 or
+                has_severe_diag or
+                high_risk_motive
+            )
         )
         
         # Flujo de decisión clínica jerárquica
@@ -422,8 +429,10 @@ class HospitalStateManager:
             # Propuesto por score pero no cumple requisitos estrictos de UCI
             recommended_area = "HOSPITALIZATION"
             justification.append("Puntaje de gravedad elevado")
+            if low_risk_motive:
+                justification.append("Motivo de consulta de bajo riesgo")
             justification.append("No cumple criterios UCI restrictivos")
-            explanation = "Paciente con score elevado pero sin inestabilidad de múltiples órganos. Se ingresa a Hospitalización por seguridad."
+            explanation = "Paciente con score elevado, pero la consulta y los signos no justifican ingreso a UCI. Se ingresa a Hospitalización por seguridad."
         elif pain >= 7 and (urg == "HIGH" or has_severe_diag):
             recommended_area = "HOSPITALIZATION"
             if pain >= 7: justification.append("Dolor severo")
@@ -568,7 +577,8 @@ class HospitalStateManager:
 
         self.patients.insert(0, patient)
         self.refresh_derived_state()
-        self.persist_patient(patient)
+        # Persistencia deshabilitada para mantener el estado solo en memoria durante la sesión.
+        # self.persist_patient(patient)
         self.add_event("PATIENT_ADDED", {"patient": patient})
         print(f"[STATE] Patient added → {patient['id_paciente']}")
 

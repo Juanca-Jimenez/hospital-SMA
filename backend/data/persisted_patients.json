@@ -1557,5 +1557,68 @@
     "enfermero_asignado": null,
     "bed_type": null,
     "cama": null
+  },
+  {
+    "edad": 77,
+    "genero": "Masculino",
+    "motivo_consulta": "Respiratorio",
+    "sintomas": [
+      "Dificultad respiratoria",
+      "Dolor torácico",
+      "Tos"
+    ],
+    "vitales": {
+      "presion": {
+        "sistolica": 120,
+        "diastolica": 80
+      },
+      "temperatura": 36.5,
+      "frecuencia": 72.0,
+      "spo2": 98.0
+    },
+    "dolor": 3,
+    "id_paciente": "P15716",
+    "timestamp": "2026-05-26T19:48:52.700034",
+    "estado": "En_evaluacion",
+    "id": "P15716",
+    "patientId": "P15716",
+    "age": 77,
+    "painLevel": 3,
+    "urgencyLevel": "LOW",
+    "prioridad": "LOW",
+    "nivel_urgencia": "LOW",
+    "oxygen": 98.0,
+    "spo2": 98.0,
+    "temperature": 36.5,
+    "temperatura": 36.5,
+    "heartRate": 72.0,
+    "frecuencia": 72.0,
+    "pressure": {
+      "sistolica": 120,
+      "diastolica": 80
+    },
+    "presion": {
+      "sistolica": 120,
+      "diastolica": 80
+    },
+    "symptoms": [
+      "Dificultad respiratoria",
+      "Dolor torácico",
+      "Tos"
+    ],
+    "diagnosis": "Respiratorio",
+    "diagnostico": "Respiratorio",
+    "mobility": "NORMAL",
+    "movilidad": "NORMAL",
+    "consciousness": "NORMAL",
+    "conciencia": "NORMAL",
+    "state": "En_evaluacion",
+    "previousState": "En_evaluacion",
+    "estado_previo": "En_evaluacion",
+    "departamento": "Pendiente",
+    "medico_asignado": null,
+    "enfermero_asignado": null,
+    "bed_type": null,
+    "cama": null
   }
 ]

@@ -5,6 +5,7 @@ import PatientForm from "./PatientForm";
 import AdmissionFlow from "./AdmissionFlow";
 import EventTimeline from "./EventTimeLine";
 import HospitalMetrics from "./HospitalMetrics";
+import ResourceCapacityBars from "./ResourceCapacityBars";
 import AgentStatus from "./AgentStatus";
 import PatientsTable from "./PatientsTable";
 
@@ -39,6 +40,7 @@ function Dashboard() {
   const [events, setEvents]               = useState([]);
   const [metrics, setMetrics]             = useState({});
   const [patients, setPatients]           = useState([]);
+  const [staffData, setStaffData]         = useState([]);
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState("");
 
@@ -62,7 +64,7 @@ function Dashboard() {
 
     const loadAll = async () => {
       try {
-        const [patientsData] = await Promise.all([
+        const [patientsData, _, __, staffData, ___] = await Promise.all([
           fetchPatients(100),
           fetchDepartments(),
           fetchResources(),
@@ -71,6 +73,7 @@ function Dashboard() {
         ]);
         if (!mounted) return;
         setPatients(patientsData.patients || []);
+        setStaffData(staffData.staff || []);
       } catch (err) {
         console.error(err);
         setError("No se pudieron cargar los datos desde los CSV.");
@@ -104,7 +107,12 @@ function Dashboard() {
       setEvents((prev) => [eventWithTs, ...prev].slice(0, 200));
 
       // ── Actualizar métricas globales ──────────────────────────────────
-      if (data.global_state) setMetrics(data.global_state);
+      if (data.global_state) {
+        console.log(`[Dashboard] Event: ${data.event_type} - Global state actualizado:`, data.global_state);
+        setMetrics(data.global_state);
+      } else {
+        console.warn(`[Dashboard] Event: ${data.event_type} NO incluye global_state`);
+      }
 
       // ── Actualizar tabla de pacientes ─────────────────────────────────
       const patFromPayload =
@@ -268,6 +276,9 @@ function Dashboard() {
         <div className="metrics-row">
           <HospitalMetrics metrics={metrics} patientsCount={patients.length} />
         </div>
+
+        {/* Barras de Capacidad de Recursos */}
+        <ResourceCapacityBars metrics={metrics} staffData={staffData} patients={patients} />
 
         {/* Formulario de admisión - Horizontal */}
         <div className="admission-form-section">

@@ -1,0 +1,18 @@
+# Ignore Python compiled files and cache directories
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Ignore local backend persistence state so teammates do not receive session data
+backend/data/persisted_patients.json
+
+# Ignore frontend build and dependencies
+frontend/dist/
+frontend/node_modules/
+
+# Ignore editor and OS files
+.vscode/
+*.swp
+*.swo
+.DS_Store

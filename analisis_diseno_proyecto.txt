@@ -1,0 +1,413 @@
+==================================================
+1. INTRODUCCIÓN DEL PROYECTO
+==================================================
+
+Nombre del proyecto: Sistema Multiagente de Admisión Hospitalaria (repositorio: hospital-SMA)
+
+Qué hace el sistema:
+- Es una plataforma de simulación y soporte de decisiones para el flujo de admisión hospitalaria. Permite ingresar pacientes (payload clínico estructurado o legado), ejecutar un proceso de triaje automático, asignar recursos (cama), asignar personal, detectar riesgos de saturación y emitir alertas y previsiones.
+
+Qué problema resuelve:
+- Automatiza y documenta decisiones clínicas y operativas en el proceso de admisión, reduciendo la carga manual del triaje, agilizando asignación de camas y personal, y proporcionando trazabilidad de decisiones para análisis posterior.
+
+Contexto del problema:
+- En entornos hospitalarios la llegada de pacientes requiere decisiones rápidas sobre prioridad clínica, área de destino (consulta, observación, hospitalización o UCI), asignación de camas y personal. Las decisiones deben considerar signos vitales, síntomas, disponibilidad de recursos y reglas clínicas institucionales.
+
+Por qué se decidió usar IA / multiagente:
+- El proyecto usa lógica programática determinista (reglas clínicas codificadas) y una arquitectura multiagente para desacoplar responsabilidades (triaje, recursos, personal, calidad, orquestación y pronóstico). No se evidencia uso de modelos ML entrenados; la “IA” aquí es un sistema de soporte de decisiones basado en reglas y heurísticas médicas codificadas.
+
+Objetivo general:
+- Diseñar e implementar un sistema multiagente que soporte el flujo de admisión hospitalaria, integrando triaje clínico, asignación de recursos y personal, detección de saturación y vigilancia de calidad.
+
+Objetivos específicos:
+- Permitir ingreso de pacientes por WebSocket y REST.
+- Ejecutar triaje automático y generar justificaciones y explicaciones de la decisión clínica.
+- Asignar camas y personal según disponibilidad y especialidad.
+- Detectar saturación de recursos y generar alertas.
+- Mantener un repositorio de trazas de decisiones y eventos para auditoría.
+
+==================================================
+2. PROBLEMA ESPECÍFICO QUE RESUELVE
+==================================================
+
+¿Cuál es el problema real?
+- La necesidad de procesar admisiones de pacientes en tiempo real con criterios clínicos y operativos consistentes, garantizando asignación eficiente de camas y personal y detectando condiciones críticas o saturación.
+
+¿Por qué era importante resolverlo?
+- Minimizar demoras, errores humanos en la priorización, mejorar la seguridad (evitar admisiones inapropiadas a UCI), y proporcionar trazabilidad de decisiones para supervisión y mejora continua.
+
+¿Qué limitaciones existían antes?
+- En el contexto del proyecto: procesos manuales o no estandarizados, difícil trazabilidad de decisiones y lentitud para reaccionar ante saturación.
+
+¿Cómo el sistema mejora el proceso?
+- Proporciona clasificación automatizada de prioridad, recomendaciones de área, asignación automática de recursos y personal, generación de alertas y trazabilidad (event_timeline y decision_trace) para análisis y auditoría.
+
+==================================================
+3. ARQUITECTURA GENERAL DEL SISTEMA
+==================================================
+
+Resumen componentes principales (detectados en el código):
+- Frontend: aplicación React (Vite) en `frontend/` que consume WebSocket y endpoints REST.
+- Backend: API y motor de agentes en Python (FastAPI + uvicorn) ubicado en `backend/`.
+- Persistencia ligera: CSV en `backend/data/` y persistencia de pacientes en `persisted_patients.json` (archivo plano JSON).
+- Comunicación interna: EventBus pub/sub en memoria (`backend/event_bus.py`).
+- Gestión del estado: `HospitalStateManager` en `backend/state_manager.py` actúa como Single Source of Truth.
+
+Servicios detectados:
+- WebSocket endpoint `/ws` (FastAPI) para mensajes en tiempo real entre frontend y backend (`backend/main.py`).
+- Endpoints REST: `/api/patients`, `/api/departments`, `/api/resources`, `/api/staff`, `/api/metrics`, `/api/state`, `/api/health`.
+
+Arquitectura textual:
+Sistema
+│
+├── Frontend (React + Vite)
+│   ├── src/components (UI para admisión, timeline, métricas)
+│   └── src/services/websocket.js (conexión a WS y REST)
+│
+├── Backend (Python, FastAPI)
+│   ├── main.py (servidor HTTP/WS, inicializa agentes y EventBus)
+│   ├── event_bus.py (pub/sub asíncrono en memoria)
+│   ├── state_manager.py (estado global, lógica clínica, persistencia mínima)
+│   ├── agents.py (implementación de agentes: Triage, Resource, Staff, Forecast, Workflow, Quality, Orchestrator)
+│   ├── rules.py (reglas clínicas y heurísticas de clasificación)
+│   ├── models.py (pydantic models para tipado; no obligatorios en runtime)
+│   └── data/ (CSV: pacientes.csv, personal.csv, recursos.csv, metricas.csv)
+│
+└── Persistencia ligera
+    └─ backend/data/persisted_patients.json
+
+==================================================
+4. FLUJO COMPLETO DEL SISTEMA
+==================================================
+
+Secuencia general (alto nivel):
+
+Inicio → Ingreso paciente (WS) → Triage (TriageAgent) → Asignación recurso (ResourceAgent) → Asignación personal (StaffAgent) → Forecast / Calidad / Workflow → Notificación / WebSocket broadcast → Fin (alta/transferencia)
+
+Detalles paso a paso (evento centrado):
+
+EVENTO: Nuevo paciente enviado desde frontend via WebSocket (`action: NEW_PATIENT`).
+↓
+PROCESAMIENTO: `backend/main.py` recibe payload, genera `id_paciente`, marca `estado=En_evaluacion`, llama `state_manager.add_patient()` y publica `PATIENT_ARRIVED` en el `EventBus`.
+QUIÉN: WebSocket endpoint (main) y StateManager (add_patient).
+DATOS ENTRAN: Payload clínico (edad, genero, sintomas, vitales, dolor, etc.).
+DATOS SALEN: Paciente persistido en memoria/JSON, evento `PATIENT_ARRIVED` publicado.
+
+EVENTO: `PATIENT_ARRIVED` (suscrito por `TriageAgent`).
+↓
+PROCESAMIENTO: `TriageAgent.handle_patient()` invoca `rules.classify_priority()` para determinar prioridad y actualiza paciente en `state_manager`. Llama `state_manager.determine_clinical_area()` que aplica score y reglas médicas para recomendar área (`CONSULTATION`, `OBSERVATION`, `HOSPITALIZATION`, `ICU`). Registra decisión en `decision_trace` y publica `PATIENT_TRIAGED`.
+QUIÉN: `TriageAgent`, `HospitalStateManager`.
+DATOS ENTRAN: Estado del paciente, signos vitales, síntomas.
+DATOS SALEN: `PATIENT_TRIAGED` con `priority`, `reasons`, `estimated_time`, `recommendedArea`.
+
+EVENTO: `PATIENT_TRIAGED` (suscrito por `ResourceAgent` y `QualityAgent`).
+↓
+PROCESAMIENTO: `ResourceAgent.allocate_resource()` llama `state_manager.allocate_resource()` que busca recursos disponibles según preferencia por tipo (ICU/EMERGENCY/GENERAL etc.), decrementa `available` y genera `RESOURCE_ALLOCATED` o añade alerta si no hay recurso.
+QUIÉN: `ResourceAgent`, `HospitalStateManager`.
+DATOS ENTRAN: paciente con `recommendedArea` y `priority`.
+DATOS SALEN: `RESOURCE_ALLOCATED` con `bed_id`, `department`, o alerta.
+
+EVENTO: `RESOURCE_ALLOCATED` (suscrito por `StaffAgent`, `WorkflowAgent`, `QualityAgent`).
+↓
+PROCESAMIENTO: `StaffAgent.assign_staff()` selecciona especialidad (`state_manager.select_staff_specialty()`), asigna médico y enfermero disponibles (`state_manager.assign_staff()` y `assign_nurse()`), marca estado del paciente y publica `STAFF_ASSIGNED`.
+QUIÉN: `StaffAgent`, `HospitalStateManager`.
+DATOS ENTRAN: paciente con cama asignada.
+DATOS SALEN: `STAFF_ASSIGNED` con `medico_id`, `enfermero_id`.
+
+EVENTO: `STAFF_ASSIGNED` (suscrito por `ForecastAgent` y `OrchestratorAgent`).
+↓
+PROCESAMIENTO: `ForecastAgent.forecast_load()` calcula ocupación (`get_occupancy_percentage`) y publica `FORECAST_UPDATED` y, si aplica, `SATURATION_WARNING`.
+QUIÉN: `ForecastAgent`.
+DATOS ENTRAN: estado global (recursos)
+DATOS SALEN: `FORECAST_UPDATED`, posibles `SATURATION_WARNING`.
+
+EVENTO: `SATURATION_WARNING` (QualityAgent observa y registra decisión / alerta).
+
+FIN: acciones posteriores (SIMULATE_HOUR, ESCALATE, TRANSFER, DISCHARGE) pueden ser enviadas desde frontend vía WS para simular avance de estado o cambiar prioridad.
+
+Broadcast a frontend:
+- `main.py` suscribe `EventBus` para una lista de `BROADCAST_EVENTS` y cuando esos eventos ocurren envía por WebSocket a todos los clientes conectados un paquete con `event_type`, `payload`, `timestamp` y `global_state` (función `make_broadcaster`).
+
+==================================================
+5. SISTEMA MULTIAGENTE
+==================================================
+
+Agentes detectados (implementación en `backend/agents.py`):
+
+- TriageAgent
+- ResourceAgent
+- StaffAgent
+- ForecastAgent
+- WorkflowAgent
+- QualityAgent
+- OrchestratorAgent
+
+Responsabilidades generales:
+- TriageAgent: Clasificar prioridad clínica y solicitar recomendación de área (usa `rules.classify_priority` y `state_manager.determine_clinical_area`). Publica `PATIENT_TRIAGED`.
+- ResourceAgent: Asignar cama/recurso según `recommendedArea` y disponibilidad. Publica `RESOURCE_ALLOCATED`.
+- StaffAgent: Seleccionar y asignar personal (médico y enfermero) según especialidad y disponibilidad. Publica `STAFF_ASSIGNED`.
+- ForecastAgent: Calcular ocupación y pronosticar riesgo de saturación; publica `FORECAST_UPDATED` y `SATURATION_WARNING` si aplica.
+- WorkflowAgent: Detectar congestión operativa (p. ej. muchos esperando o pocas camas de emergencia) y publicar `WORKFLOW_ALERT` para sugerir redistribución.
+- QualityAgent: Validaciones y chequeos (triaje crítico, asignación sin UCI, ausencia de staff), genera `CRITICAL_ALERT` o registra `QUALITY_CHECK`.
+- OrchestratorAgent: Observador global; suscribe eventos principales y registra observaciones en el timeline.
+
+Estados (observados en `state_manager` y agentes):
+- Estados de paciente: `En_evaluacion`, `TRIAGED`, `CONSULTATION`, `OBSERVATION`, `HOSPITALIZATION`, `ICU`, `Alta`, `Transferido`, `Personal_asignado`, `En_atencion`, `En_observacion`, `Mejorando`, `Alta_pendiente`, `Transferido_interno`.
+
+Reglas y eventos (resumen):
+- Reglas de prioridad: `rules.classify_priority()` determina `CRITICAL|HIGH|MEDIUM|NORMAL` según signos vitales, dolor, edad, motivos.
+- Lógica de decisión central: `state_manager.determine_clinical_area()` combina un puntaje (`calculate_priority_score`) y reglas clínicas para recomendar área; incluye regla anti-UCI y validación de transiciones de estado.
+
+Tabla resumen de agentes:
+
+Nombre | Objetivo | Entrada | Proceso | Salida | Dependencias | Eventos que genera | Eventos que escucha
+TriageAgent | Clasificar prioridad y recomendar área | Payload de paciente (NEW_PATIENT / PATIENT_ARRIVED) | Clasificación de prioridad (rules), llamada a determine_clinical_area | PATIENT_TRIAGED (priority, reasons, estimated_time, recommendedArea) | state_manager, rules, event_bus | PATIENT_TRIAGED | PATIENT_ARRIVED
+ResourceAgent | Asignar camas según recommendedArea | PATIENT_TRIAGED | allocate_resource -> state_manager.allocate_resource | RESOURCE_ALLOCATED o alerta | state_manager, event_bus | RESOURCE_ALLOCATED | PATIENT_TRIAGED
+StaffAgent | Asignar médico/enfermero | RESOURCE_ALLOCATED | select_staff_specialty, assign_staff, assign_nurse | STAFF_ASSIGNED | state_manager, event_bus | STAFF_ASSIGNED | RESOURCE_ALLOCATED
+ForecastAgent | Calcular ocupación y alertas | STAFF_ASSIGNED | get_occupancy_percentage, detect_saturation | FORECAST_UPDATED, SATURATION_WARNING | state_manager, rules, event_bus | FORECAST_UPDATED, SATURATION_WARNING | STAFF_ASSIGNED
+WorkflowAgent | Detectar congestión y proponer redistribución | RESOURCE_ALLOCATED | heurísticas sobre waiting_patients y resources | WORKFLOW_ALERT | state_manager, event_bus | WORKFLOW_ALERT | RESOURCE_ALLOCATED
+QualityAgent | Validar triaje, asignaciones y saturación | PATIENT_TRIAGED, RESOURCE_ALLOCATED, STAFF_ASSIGNED, SATURATION_WARNING | chequear condiciones y generar alertas/quality_checks | CRITICAL_ALERT o registro de calidad | state_manager, rules, event_bus | CRITICAL_ALERT, ALERTS | PATIENT_TRIAGED, RESOURCE_ALLOCATED, STAFF_ASSIGNED, SATURATION_WARNING
+OrchestratorAgent | Observador global del flujo | varios eventos | registra observación en timeline | ORCHESTRATOR_OBSERVATION (evento interno) | state_manager, event_bus | (ninguno específico) | múltiples (PATIENT_ARRIVED, PATIENT_TRIAGED, ...)
+
+Si un campo no está explicitado (por ejemplo estados exactos usados por UI), se mencionó "No identificado explícitamente en el código" en las secciones pertinentes.
+
+==================================================
+6. COMUNICACIÓN ENTRE AGENTES
+==================================================
+
+Mecanismo principal: EventBus (pub/sub) implementado en `backend/event_bus.py`.
+- Es asíncrono y en memoria. Los agentes se suscriben a tipos de eventos (strings). Cuando un agente publica un evento, EventBus crea tareas con `asyncio.create_task(callback(data))` y `await asyncio.gather(*tasks)` para invocar a los suscriptores en paralelo.
+
+Coordinación y orquestación:
+- No existe un broker externo; la coordinación es eventual y basada en eventos. El `OrchestratorAgent` actúa como observador central pero no centraliza decisiones obligatorias.
+
+Mensajería con frontend:
+- El backend expone un WebSocket `/ws` que acepta conexiones desde el frontend (React). El servidor envía snapshots iniciales y, mediante suscripciones a `BROADCAST_EVENTS`, retransmite eventos relevantes a todos los clientes con el estado global adjunto.
+
+Compartición de estado:
+- `HospitalStateManager` es la fuente única de la verdad (single source of truth) en memoria; agentes leen y actualizan el estado mediante llamadas directas (`state_manager.*`). No hay base de datos relacional ni cola persistente, salvo archivos CSV y `persisted_patients.json`.
+
+Diagrama textual de comunicación:
+
+Frontend (WS/REST)
+│
+└─> WebSocket / REST
+    │
+    └─> Backend (main.py)
+        ├─> StateManager (mutaciones / lecturas)
+        └─> EventBus (publica eventos)
+            ├─> TriageAgent → publica PATIENT_TRIAGED
+            ├─> ResourceAgent → publica RESOURCE_ALLOCATED
+            ├─> StaffAgent → publica STAFF_ASSIGNED
+            ├─> ForecastAgent → publica FORECAST_UPDATED / SATURATION_WARNING
+            ├─> QualityAgent → publica CRITICAL_ALERT
+            └─> OrchestratorAgent (observador)
+
+==================================================
+7. LÓGICA DE DECISIÓN DEL SISTEMA
+==================================================
+
+Cómo decide (resumen):
+- La decisión clínica central combina dos bloques: un puntaje de apoyo (`calculate_priority_score`) y una evaluación de condiciones críticas (`evaluate_clinical_conditions`), luego aplica una jerarquía de reglas en `determine_clinical_area` para decidir `recommendedArea`. Se aplican reglas adicionales: regla anti-UCI y validación de transiciones de estados.
+
+Variables evaluadas (ejemplos extraídos del código):
+- Signos vitales: SpO2 (`oxygen`/`spo2`), frecuencia cardiaca, presión sistólica/diastólica, temperatura.
+- Escala de dolor (`painLevel`/`dolor`).
+- Edad.
+- Urgencia/`nivel_urgencia`.
+- Síntomas y diagnóstico (texto): presencia de "dificultad respiratoria", "pérdida conciencia", "dolor torácico", "fractura", etc.
+- Disponibilidad de recursos (ocupación UCI/EMERGENCY) y personal.
+
+Reglas (extracto operacional):
+- Si hay múltiples indicadores críticos → `CRITICAL`.
+- Score acumulado determina propuesta (`CONSULTATION`, `OBSERVATION`, `HOSPITALIZATION`, `ICU`).
+- Reglas estrictas para UCI: requiere urgencia CRITICAL, múltiples condiciones críticas y al menos un indicador letal (p. ej. SpO2 < 90, conciencia alterada, presión crítica, dolor >=9).
+- Regla anti-UCI: si recomendado ICU pero dolor <7 y urgencia != CRITICAL, se bloquea la UCI y se redirige (OBSERVATION o HOSPITALIZATION) y se genera alerta/evento `ICU_BLOCKED_BY_CLINICAL_POLICY`.
+
+Pseudocódigo simplificado de `determine_clinical_area`:
+
+function determine_clinical_area(patient):
+    p = normalize(patient)
+    score = calculate_priority_score(p)
+    critical_count = evaluate_clinical_conditions(p)
+    proposed_area = area_from_score(score)
+
+    if is_icu_eligible(urgency, critical_count, indicators_lethales):
+        recommended = ICU
+    elif proposed_area == ICU:
+        recommended = HOSPITALIZATION
+    elif pain >= 7 and (urgency == HIGH or has_severe_diag):
+        recommended = HOSPITALIZATION
+    elif (5 <= pain <=7) or (age>65) or (temp>=38.5) or (o2<95) or (urgency==MEDIUM):
+        recommended = OBSERVATION
+    elif is_consultation_eligible(...):
+        recommended = CONSULTATION
+    else:
+        recommended = proposed_area
+
+    if recommended == ICU and policy_blocks_icu(p):
+        generate_alert("ICU_BLOCKED_BY_CLINICAL_POLICY")
+        recommended = adjust_from_policy(score)
+
+    if transition_to_ICU_prohibited(prev_state, recommended):
+        generate_alert("STATE_TRANSITION_BLOCKED")
+        recommended = safe_fallback()
+
+    return {patientId, previousState, newState: recommended, priorityScore: score, justification, explanation}
+
+Priorización y restricciones técnicas:
+- Las decisiones clínicas son deterministas y codificadas; la prioridad combine reglas y scores heurísticos.
+- No hay aprendizaje automático ni probabilístico; la lógica es interpretable y registrable.
+
+==================================================
+8. RESTRICCIONES DEL SISTEMA
+==================================================
+
+Restricciones funcionales:
+- Sistema depende de CSV iniciales (`pacientes.csv`, `recursos.csv`, `personal.csv`, `metricas.csv`) para cargar estado.
+- Persistencia limitada: solo `persisted_patients.json` salvo los CSV. No existe base de datos transaccional.
+
+Restricciones técnicas:
+- EventBus en memoria: no persistente, no distribuido. Si el proceso backend reinicia, el timeline y estado en memoria se pierden (salvo pacientes persistidos en JSON y CSV estático).
+- Concurrencia basada en asyncio local; no preparada para despliegue distribuido sin adaptar el bus de eventos.
+- Dependencia en `pandas` para lectura de CSV; uso intensivo de memoria posible con grandes CSV.
+
+Restricciones operativas:
+- Diseño pensado para simulación y visualización local; no hay autenticación, autorización ni separación multiusuario.
+
+Restricciones del modelo / limitaciones actuales:
+- No hay modelos ML; las reglas clínicas son deterministas y pueden requerir validación clínica real antes de uso productivo.
+- Lógica de triaje y reglas específicas reflejan heurísticas codificadas en `rules.py` y `state_manager.py` — pueden no cubrir todos los casos clínicos reales.
+
+Impacto:
+- El sistema es válido como prototipo y herramienta de simulación/estudio académico, pero requiere endurecimiento (persistencia, tolerancia a fallos, seguridad y validación clínica) para uso clínico real.
+
+==================================================
+9. ENTRADAS Y SALIDAS
+==================================================
+
+Entradas (ejemplos):
+
+Entrada | Origen | Uso
+Paciente (payload clínico) | Frontend → WebSocket `/ws` (action: NEW_PATIENT) | Ingresar paciente al sistema, normalizar y disparar flujo de triaje
+Acciones (SIMULATE_HOUR, ESCALATE, TRANSFER, DISCHARGE) | Frontend → WebSocket | Simular avance temporal o ejecutar operaciones sobre paciente
+CSV (`recursos.csv`) | Carpeta `backend/data/` | Cargar inventario y ocupación de camas
+CSV (`personal.csv`) | Carpeta `backend/data/` | Cargar personal disponible y roles
+CSV (`pacientes.csv`) | Carpeta `backend/data/` | Cargar pacientes iniciales
+
+Salidas (ejemplos):
+
+Salida | Destino | Resultado
+Eventos Broadcast (PATIENT_TRIAGED, RESOURCE_ALLOCATED, etc.) | Frontend via WebSocket broadcast | Actualización UI: timeline, tabla de pacientes, métricas
+REST `/api/*` | Frontend u otros clientes | Datos de pacientes, recursos, staff, métricas y estado
+persisted_patients.json | Sistema de archivos | Registro histórico de pacientes añadidos durante ejecución
+Alertas / decision_trace | Event timeline & state_manager | Trazabilidad y auditoría de decisiones
+
+==================================================
+10. MODELO DE DATOS
+==================================================
+
+Entidades principales (según `models.py` y uso en `state_manager`):
+
+- Patient (Paciente): campos normales y legados (`id_paciente`, `timestamp`, `edad`, `genero`, `nivel_urgencia`, `sintomas`, `signos_vitales`, `vitales` estructurados, `dolor`, `diagnosis`, `estado`, `departamento_asignado`, `bed_id`, `medico_asignado`, `enfermero_asignado`, `priorityScore`, `recommendedArea`, etc.).
+- Resource (Recurso / Cama): representación en `state_manager.resources` indexada por tipo (`ICU`, `EMERGENCY`, `GENERAL`, `SURGERY`, `CONSULTATION`, `PEDIATRICS`), con campos `total`, `available`, `occupied`, `departamento`.
+- Staff (Personal): registros leídos desde `personal.csv` con `id_empleado`, `nombre`, `rol`, `especialidad`, `estado` (Disponible/Ocupado), `pacientes_atendidos_turno`.
+- Event (Evento): estructura en `event_timeline` con `event_type`, `timestamp`, `payload`.
+- DecisionTrace: estructura en `decision_trace` con `patient_id`, `agent`, `timestamp`, `decision`, `reason`, `source_data`.
+
+Relaciones:
+- Un `Patient` puede estar asociado a cero o un `Resource` (bed_id) y a cero o varios `Staff` (medico_asignado, enfermero_asignado).
+- `StateManager` mantiene colecciones (listas/diccionarios) de pacientes, recursos y staff en memoria.
+
+Estados importantes:
+- Para paciente: registrado/en evaluación → triaged → asignado (cama) → personal asignado → en atención → mejorando → alta.
+
+Campos relevantes para informe: `id_paciente`, `edad`, `dolor`, `vitales.spo2`, `vitales.temperatura`, `vitales.frecuencia`, `pressure.sistolica`, `prioridad` (clasificación), `priorityScore`, `recommendedArea`, `bed_id`, `medico_asignado`, `estado`.
+
+==================================================
+11. TECNOLOGÍAS UTILIZADAS
+==================================================
+
+Tecnología | Rol | Justificación
+Python (3.x) | Backend / lógica | Lenguaje principal para lógica, agentes y FastAPI
+FastAPI | Framework web | Endpoints REST y WebSocket; asincronía con asyncio
+uvicorn | Servidor ASGI | Ejecutar aplicación FastAPI
+pandas | Lectura CSV | Facilita carga y transformación de CSV para recursos, staff y métricas
+React + Vite | Frontend | Interfaz de usuario, WebSocket cliente y consumo REST
+WebSocket (WS) | Comunicación en tiempo real | Notificaciones push y sincronización de estado con frontend
+JSON / CSV | Persistencia ligera | Formato simple para datos de entrada y persistencia
+
+Dependencias listadas: `backend/requirements.txt` (fastapi, uvicorn, pandas) y `frontend/package.json` (react, vite, plugins eslint).
+
+==================================================
+12. RESULTADOS OBTENIDOS
+==================================================
+
+Qué logra el sistema:
+- Permite simular y ejecutar un flujo completo de admisión: llegada del paciente, triaje automático, asignación de cama, asignación de personal, generación de pronóstico de ocupación y alertas de saturación.
+
+Casos que soporta:
+- Payload clínico nuevo (vitales estructurados) y payload legado (campos en español/inglés). Soporta campos mixtos y normaliza entradas.
+- Escenarios con escasez de recursos (genera alertas y decisiones alternativas).
+
+Ventajas:
+- Lógica interpretable y trazable (decision_trace).
+- Arquitectura desacoplada por eventos que facilita añadir agentes nuevos.
+
+Escenarios simulados (evidentes en UI y endpoints):
+- Ingreso de paciente crítico sin cama UCI disponible → generación de alerta `CRITICAL_ALERT` y regla anti-UCI que redirige al paciente.
+- Congestión de urgencias (waiting_patients alto) → `WORKFLOW_ALERT` para redistribución.
+
+==================================================
+13. CONCLUSIONES
+==================================================
+
+¿Se resolvió el problema?
+- Parcialmente: el sistema implementa un flujo reproducible y trazable que automatiza decisiones operativas y clínicas en admisión. Es adecuado como prototipo académico y base para el informe final.
+
+¿Por qué es un sistema multiagente?
+- Porque la lógica está separada en agentes independientes que se comunican por eventos: cada agente tiene responsabilidad única (triaje, recursos, personal, calidad, forecast, workflow, orquestación) y reacciona a eventos del sistema. Este desacoplamiento facilita extensión y pruebas.
+
+¿Qué se puede mejorar?
+- Persistencia robusta (DB relacional/noSQL) para evitar pérdida de estado en reinicios.
+- Reemplazar EventBus en memoria por un broker (Redis, RabbitMQ) para escalabilidad distribuida.
+- Añadir autenticación/autorización y control de acceso.
+- Validación clínica por profesionales y parametrización externa de reglas clínicas.
+- Añadir tests unitarios y de integración para las reglas clínicas y agentes.
+
+==================================================
+14. ANEXOS
+==================================================
+
+Archivos importantes (ruta relativa):
+- backend/main.py
+- backend/event_bus.py
+- backend/state_manager.py
+- backend/agents.py
+- backend/rules.py
+- backend/models.py
+- backend/data/pacientes.csv
+- backend/data/recursos.csv
+- backend/data/personal.csv
+- backend/data/metricas.csv
+- backend/data/persisted_patients.json (generado en ejecución)
+- frontend/src/services/websocket.js
+- frontend/src/components/dashboard.jsx
+- frontend/package.json
+- backend/requirements.txt
+
+Variables / configuraciones importantes:
+- WebSocket endpoint: `ws://localhost:8000/ws`
+- REST base: `http://localhost:8000/api` (endpoints: /patients, /departments, /resources, /staff, /metrics, /state, /health)
+- CSVs en `backend/data/`.
+
+Dependencias (extraídas de archivos):
+- Backend: `fastapi>=0.95.0`, `uvicorn[standard]>=0.22.0`, `pandas>=2.0.0` (ver `backend/requirements.txt`).
+- Frontend: `react`, `react-dom`, `vite` (ver `frontend/package.json`).
+
+Notas finales y advertencias (extraídas del código):
+- No se encontró implementación de `backend/simulation.py` (archivo vacío) — la simulación temporal se implementa parcialmente en `state_manager.simulate_hour()`.
+- No hay mecanismos de autenticación o autorización en FastAPI/WS.
+- EventBus es en memoria; la resiliancia ante fallos no está implementada.
+
+Si algún punto necesita mayor profundidad (por ejemplo, pseudocódigo línea a línea de una función concreta, o extracción de métricas específicas de `rules.py`), puedo generar un anexo técnico adicional con fragmentos de código y análisis cuantitativo.

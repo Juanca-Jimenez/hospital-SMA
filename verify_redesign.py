@@ -135,7 +135,29 @@ def run_tests():
     print(f"  Justificaciones: {res_anti['justification']}")
     print(f"  Explicacion: {res_anti['explanation']}\n")
 
-    # 6. MAQUINA DE ESTADOS: TRANSICION PROHIBIDA (CONSULTATION -> ICU)
+    # 6. CASO DOLOR BAJO RIESGO -> HOSPITALIZATION (NO ICU)
+    dolor_bajo_riesgo = {
+        "id": "P-DOLOR-BAJO-RIESGO",
+        "edad": 45,
+        "dolor": 8,
+        "prioridad": "HIGH",
+        "spo2": 96.0,
+        "temperatura": 37.0,
+        "frecuencia": 90,
+        "presion": {"sistolica": 120, "diastolica": 80},
+        "sintomas": ["Dolor abdominal"],
+        "motivo_consulta": "Dolor abdominal agudo",
+        "movilidad": "NORMAL",
+        "conciencia": "NORMAL",
+        "estado": "REGISTERED"
+    }
+    res_dolor = sm.determine_clinical_area(dolor_bajo_riesgo)
+    assert res_dolor["newState"] == "HOSPITALIZATION", f"Fallo Caso Dolor Bajo Riesgo: {res_dolor['newState']}"
+    print("OK - Caso Dolor Bajo Riesgo asignado a HOSPITALIZATION correctamente!")
+    print(f"  Score: {res_dolor['priorityScore']} | Justificaciones: {res_dolor['justification']}")
+    print(f"  Explicacion: {res_dolor['explanation']}\n")
+
+    # 7. MAQUINA DE ESTADOS: TRANSICION PROHIBIDA (CONSULTATION -> ICU)
     # Paciente con estado previo CONSULTATION que se intenta enviar a ICU
     transicion_prohibida = {
         "id": "P-TRANSICION",

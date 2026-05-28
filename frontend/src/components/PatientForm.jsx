@@ -3,7 +3,7 @@ import { useState, useCallback } from "react";
 import { sendPatient } from "../services/websocket";
 
 // ─── Constantes clínicas ───────────────────────────────────────────────────
-const MOTIVOS = ["Dolor", "Respiratorio", "Trauma", "Neurológico", "Digestivo", "Control", "Fiebre"];
+const MOTIVOS = ["Dolor", "Respiratorio", "Trauma", "Neurológico", "Digestivo", "Control", "Fiebre", "Otro"];
 
 const SINTOMAS_OPCIONES = [
   "Dolor torácico",
@@ -17,6 +17,10 @@ const SINTOMAS_OPCIONES = [
   "Pérdida conciencia",
   "Náuseas",
   "Cansancio",
+  "Apendicitis",      // para cirugía
+  "Colecistitis",     // para cirugía
+  "Hernia",           // para cirugía
+  "Abdomen agudo",    // para cirugía
 ];
 
 const DOLOR_LABELS = {
@@ -38,6 +42,7 @@ const INITIAL_FORM = {
   genero: "Masculino",
   motivo_consulta: "",
   sintomas: [],
+  otrosSintomas: "",      // texto libre adicional
   sistolica: "",
   diastolica: "",
   temperatura: "",
@@ -56,8 +61,9 @@ function validate(form) {
   if (!form.motivo_consulta) {
     errors.motivo_consulta = "Selecciona un motivo de consulta";
   }
-  if (form.sintomas.length === 0) {
-    errors.sintomas = "Selecciona al menos un síntoma";
+  // Al menos un síntoma (checkbox u otros)
+  if (form.sintomas.length === 0 && !form.otrosSintomas.trim()) {
+    errors.sintomas = "Selecciona al menos un síntoma o escribe otros síntomas";
   }
 
   const sis = Number(form.sistolica);
@@ -102,7 +108,8 @@ function PatientForm({ onResult }) {
         if (f.sintomas.includes(s)) {
           return { ...f, sintomas: f.sintomas.filter((x) => x !== s) };
         }
-        if (f.sintomas.length >= 3) return f; // máximo 3
+        // Máximo 3 síntomas de checkbox (sin contar otrosSintomas)
+        if (f.sintomas.length >= 3) return f;
         return { ...f, sintomas: [...f.sintomas, s] };
       });
     },
@@ -122,11 +129,19 @@ function PatientForm({ onResult }) {
 
     setLoading(true);
 
+    // Combinar síntomas seleccionados + texto de otros síntomas
+    let sintomasList = [...form.sintomas];
+    if (form.otrosSintomas.trim()) {
+      // Dividir por comas o espacios simples
+      const otros = form.otrosSintomas.split(/[,;]+/).map(s => s.trim()).filter(s => s);
+      sintomasList.push(...otros);
+    }
+
     const payload = {
       edad: Number(form.edad),
       genero: form.genero,
-      motivo_consulta: form.motivo_consulta,
-      sintomas: form.sintomas,
+      motivo_consulta: form.motivo_consulta === "Otro" ? "" : form.motivo_consulta,
+      sintomas: sintomasList,
       vitales: {
         presion: {
           sistolica: Number(form.sistolica),
@@ -144,7 +159,7 @@ function PatientForm({ onResult }) {
     setLoading(false);
 
     if (onResult) onResult(payload);
-    // No limpiar — mantenemos datos en pantalla según spec
+    // No limpiar el formulario (opcional)
   };
 
   const dolorLabel = DOLOR_LABELS[form.dolor] || "";
@@ -175,7 +190,6 @@ function PatientForm({ onResult }) {
             <span className="pf-section-num">A</span>Información básica
           </h3>
           <div className="pf-row-2">
-            {/* Edad */}
             <div className="pf-field">
               <label className="pf-label" htmlFor="pf-edad">
                 Edad <span className="pf-req">*</span>
@@ -193,7 +207,6 @@ function PatientForm({ onResult }) {
               {errors.edad && <p className="pf-error">{errors.edad}</p>}
             </div>
 
-            {/* Género */}
             <div className="pf-field">
               <label className="pf-label" htmlFor="pf-genero">
                 Género
@@ -242,7 +255,7 @@ function PatientForm({ onResult }) {
         <section className="pf-section">
           <h3 className="pf-section-title">
             <span className="pf-section-num">C</span>Síntomas
-            <span className="pf-section-hint">máximo 3</span>
+            <span className="pf-section-hint">máximo 3 de la lista + texto libre</span>
           </h3>
           <div className="pf-chips">
             {SINTOMAS_OPCIONES.map((s) => {
@@ -262,6 +275,19 @@ function PatientForm({ onResult }) {
               );
             })}
           </div>
+          <div className="pf-field" style={{ marginTop: "0.75rem" }}>
+            <label className="pf-label" htmlFor="pf-otros-sintomas">
+              Otros síntomas (separados por comas)
+            </label>
+            <input
+              id="pf-otros-sintomas"
+              type="text"
+              className="pf-input"
+              placeholder="Ej: apendicitis, colecistitis, dolor agudo"
+              value={form.otrosSintomas}
+              onChange={(e) => set("otrosSintomas", e.target.value)}
+            />
+          </div>
           {errors.sintomas && <p className="pf-error">{errors.sintomas}</p>}
         </section>
 
@@ -271,7 +297,6 @@ function PatientForm({ onResult }) {
             <span className="pf-section-num">D</span>Signos vitales
           </h3>
 
-          {/* Presión arterial */}
           <div className="pf-vital-group">
             <span className="pf-vital-label">Presión arterial (mmHg)</span>
             <div className="pf-row-2">
@@ -310,7 +335,6 @@ function PatientForm({ onResult }) {
             </div>
           </div>
 
-          {/* Temperatura, FC, SpO2 */}
           <div className="pf-row-3">
             <div className="pf-field">
               <label className="pf-label" htmlFor="pf-temp">
@@ -396,7 +420,6 @@ function PatientForm({ onResult }) {
           </div>
         </section>
 
-        {/* Submit */}
         <button type="submit" className="pf-submit" disabled={loading} id="pf-submit-btn">
           {loading ? (
             <span className="pf-spinner" />
